@@ -41,11 +41,18 @@ export function Legend({ items }) {
 /** Grafik batang berkelompok. data: [{label, a, b}], series: [{key,label,color}] */
 export function BarChart({ data, series, height = 220 }) {
   const [ref, w] = useLebar()
-  const pad = { l: 44, r: 6, t: 8, b: 26 }
   const maxVal = Math.max(0, ...data.flatMap((d) => series.map((s) => d[s.key] || 0)))
   const { top, list } = skala(maxVal)
+  const padX = { l: 44, r: 6, t: 8 }
+  const gw = data.length ? Math.max(0, w - padX.l - padX.r) / data.length : 0
+  // label kategori: dipotong kalau panjang, dimiringkan kalau kolomnya terlalu sempit (supaya tidak bertumpuk)
+  const potong = (t) => (String(t).length > 11 ? String(t).slice(0, 10) + '…' : String(t))
+  const terpanjang = Math.max(0, ...data.map((d) => potong(d.label).length))
+  const miring = data.length > 1 && gw < terpanjang * 6.4 + 8
+  const extra = miring ? 30 : 0
+  const pad = { ...padX, b: 26 + extra }
+  height += extra
   const iw = Math.max(0, w - pad.l - pad.r), ih = height - pad.t - pad.b
-  const gw = data.length ? iw / data.length : 0
   const bw = Math.max(4, Math.min(26, (gw * 0.72) / series.length))
   const grup = bw * series.length + 4 * (series.length - 1)
   const y = (v) => pad.t + ih - (v / top) * ih
@@ -74,7 +81,9 @@ export function BarChart({ data, series, height = 220 }) {
                       </rect>
                     )
                   })}
-                  <text x={pad.l + gw * i + gw / 2} y={height - 8} textAnchor="middle" className="axis">{d.label}</text>
+                  {miring
+                    ? <text transform={`translate(${pad.l + gw * i + gw / 2 + 4},${pad.t + ih + 14}) rotate(-35)`} textAnchor="end" className="axis">{potong(d.label)}<title>{d.label}</title></text>
+                    : <text x={pad.l + gw * i + gw / 2} y={height - 8} textAnchor="middle" className="axis">{potong(d.label)}<title>{d.label}</title></text>}
                 </g>
               )
             })}
