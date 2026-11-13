@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { Panel, Empty } from './ui'
 import { Ring } from '../components/charts'
 import { rupiah, tanggal } from '../lib/format'
+import EditDialog from './edit-dialog'
 
 export default function Goal({ state, dispatch }) {
   const [f, setF] = useState({ name: '', target: '', deadline: '' })
-  const [fund, setFund] = useState({})
+  const [fund, setFund] = useState({}), [ed, setEd] = useState(null)
   const add = (e) => {
     e.preventDefault()
     if (!f.name.trim() || !(Number(f.target) > 0)) return
@@ -28,7 +29,7 @@ export default function Goal({ state, dispatch }) {
             <Panel key={g.id}>
               <div className="goalhead">
                 <Ring value={g.saved} max={g.target} />
-                <div><strong>{g.name}</strong><small>{g.deadline ? `Target ${tanggal(g.deadline)}` : 'Tanpa tenggat'}</small></div>
+                <div><strong>{g.name}</strong><small>{g.deadline ? `Target ${tanggal(g.deadline)}` : 'Tanpa tenggat'}</small><button className="linkbtn" onClick={() => setEd(g)}>Ubah / hapus</button></div>
               </div>
               <p className="goalnum"><b>{rupiah(g.saved)}</b> dari {rupiah(g.target)}<small>{sisa ? `Kurang ${rupiah(sisa)}` : 'Target tercapai 🎉'}</small></p>
               <form className="inline" onSubmit={(e) => { e.preventDefault(); const n = Number(fund[g.id]); if (n > 0) { dispatch({ type: 'fundGoal', id: g.id, amount: n }); setFund({ ...fund, [g.id]: '' }) } }}>
@@ -39,6 +40,10 @@ export default function Goal({ state, dispatch }) {
           )
         })}
       </div>
+      <EditDialog item={ed} title="Ubah goal" onClose={() => setEd(null)}
+        fields={[{ k: 'name', label: 'Nama goal', type: 'text' }, { k: 'target', label: 'Target (Rp)', type: 'number', min: 1 }, { k: 'saved', label: 'Sudah terkumpul (Rp)', type: 'number', min: 0 }, { k: 'deadline', label: 'Tenggat', type: 'date' }]}
+        onSave={(patch) => dispatch({ type: 'updateGoal', id: ed.id, patch })}
+        onDelete={() => dispatch({ type: 'deleteGoal', id: ed.id })} />
       <Panel title="Buat goal baru">
         <form className="inline" onSubmit={add}>
           <input placeholder="Nama goal" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label="Nama goal" />

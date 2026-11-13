@@ -3,9 +3,10 @@ import { Panel, Empty } from './ui'
 import { BarChart, Donut } from '../components/charts'
 import { rupiah } from '../lib/format'
 import { JENIS_INVESTASI } from '../lib/store'
+import EditDialog from './edit-dialog'
 
 export default function Investasi({ state, dispatch }) {
-  const [f, setF] = useState({ name: '', type: JENIS_INVESTASI[0], invested: '' })
+  const [f, setF] = useState({ name: '', type: JENIS_INVESTASI[0], invested: '' }), [ed, setEd] = useState(null)
   const tot = state.investments.reduce((a, i) => ({ inv: a.inv + i.invested, val: a.val + i.value }), { inv: 0, val: 0 })
   const gain = tot.val - tot.inv
   const add = (e) => {
@@ -41,7 +42,7 @@ export default function Investasi({ state, dispatch }) {
           const g = i.value - i.invested
           return (
             <div key={i.id} className="trow">
-              <div><strong>{i.name}</strong><small>{i.type} · modal {rupiah(i.invested)}</small></div>
+              <div><strong>{i.name}</strong><small>{i.type} · modal {rupiah(i.invested)}</small><button className="linkbtn" onClick={() => setEd(i)}>Ubah / hapus</button></div>
               <div className="right">
                 <label className="mini">Nilai<input type="number" inputMode="numeric" defaultValue={i.value} onBlur={(e) => Number(e.target.value) >= 0 && Number(e.target.value) !== i.value && dispatch({ type: 'updateInvestmentValue', id: i.id, value: Number(e.target.value) })} /></label>
                 <small className={g >= 0 ? 'in' : 'out'}>{g >= 0 ? '+' : '−'}{rupiah(Math.abs(g))}</small>
@@ -50,6 +51,10 @@ export default function Investasi({ state, dispatch }) {
           )
         })}
       </Panel>
+      <EditDialog item={ed} title="Ubah investasi" onClose={() => setEd(null)}
+        fields={[{ k: 'name', label: 'Nama', type: 'text' }, { k: 'type', label: 'Jenis', type: 'select', options: JENIS_INVESTASI.map((j) => [j, j]) }, { k: 'invested', label: 'Modal (Rp)', type: 'number', min: 0 }, { k: 'value', label: 'Nilai sekarang (Rp)', type: 'number', min: 0 }]}
+        onSave={(patch) => dispatch({ type: 'updateInvestment', id: ed.id, patch })}
+        onDelete={() => dispatch({ type: 'deleteInvestment', id: ed.id })} />
       <Panel title="Tambah investasi">
         <form className="inline" onSubmit={add}>
           <input placeholder="Nama (mis. Reksa Dana X)" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label="Nama investasi" />

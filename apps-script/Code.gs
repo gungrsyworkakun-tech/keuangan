@@ -57,7 +57,7 @@ function doPost(e) {
   let req;
   try { req = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'Permintaan tidak valid' }); }
   try {
-    if (req.action === 'login') return json_(login_(req.username, req.password));
+    if (req.action === 'login') return json_(login_(req.username, req.password, req.ingat === true));
     const user = cekSesi_(req.token);
     if (!user) return json_({ ok: false, error: 'Sesi habis, silakan login lagi', auth: false });
     switch (req.action) {
@@ -65,8 +65,8 @@ function doPost(e) {
       case 'saveProfile': return json_(simpanProfil_(user, req.nama));
       case 'save':   return json_(simpan_(req.state, user));
       case 'backup': return json_({ ok: true, nama: backupSekarang() });
-      case 'logout': CacheService.getScriptCache().remove('sess_' + req.token); return json_({ ok: true });
-      case 'changePassword': return json_(gantiPassword_(user, req.oldPassword, req.newPassword));
+      case 'logout': CacheService.getScriptCache().remove('sess_' + req.token); hapusSesiPanjang_(req.token); return json_({ ok: true });
+      case 'changePassword': { const h = gantiPassword_(user, req.oldPassword, req.newPassword); if (h.ok) cabutSesiLain_(req.token); return json_(h); }
       default: return json_({ ok: false, error: 'Aksi tidak dikenal' });
     }
   } catch (err) {
@@ -103,7 +103,7 @@ function simpanUser_(username, password) {
   PropertiesService.getScriptProperties().setProperty('USERS', JSON.stringify(users));
 }
 
-function login_(username, password) {
+function login_(username, password, ingat) {
   const cache = CacheService.getScriptCache();
   const u = String(username || '').toLowerCase().slice(0, 64);
   const kunci = 'gagal_' + u;
@@ -122,12 +122,48 @@ function login_(username, password) {
   cache.remove(kunci);
   const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
   cache.put('sess_' + token, u, SESI_DETIK);
+  if (ingat) simpanSesiPanjang_(u, token);
   return { ok: true, token: token, user: u, profil: profil_(u) };
 }
 
 function cekSesi_(token) {
   if (!token || typeof token !== 'string') return null;
-  return CacheService.getScriptCache().get('sess_' + token);
+  const cache = CacheService.getScriptCache();
+  const u = cache.get('sess_' + token);
+  if (u) return u;
+  // sesi "ingat saya" (30 hari): disimpan sebagai hash, bukan token aslinya
+  const rec = sesiPanjang_()[hashToken_(token)];
+  if (rec && rec.exp > Date.now()) { cache.put('sess_' + token, rec.u, SESI_DETIK); return rec.u; }
+  return null;
+}
+
+/* ---------- SESI "INGAT SAYA" ---------- */
+const SESI_PANJANG_MS = 30 * 24 * 3600 * 1000;
+function hashToken_(t) { return bytesKeHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(t), Utilities.Charset.UTF_8)); }
+function sesiPanjang_() { return JSON.parse(PropertiesService.getScriptProperties().getProperty('SESI') || '{}'); }
+function tulisSesiPanjang_(semua) {
+  const sekarang = Date.now();
+  const bersih = {};
+  Object.keys(semua).filter(function (k) { return semua[k].exp > sekarang; })
+    .sort(function (a, b) { return semua[b].exp - semua[a].exp; }).slice(0, 10) // maksimal 10 perangkat
+    .forEach(function (k) { bersih[k] = semua[k]; });
+  PropertiesService.getScriptProperties().setProperty('SESI', JSON.stringify(bersih));
+}
+function simpanSesiPanjang_(u, token) {
+  const semua = sesiPanjang_();
+  semua[hashToken_(token)] = { u: u, exp: Date.now() + SESI_PANJANG_MS };
+  tulisSesiPanjang_(semua);
+}
+function hapusSesiPanjang_(token) {
+  const semua = sesiPanjang_();
+  delete semua[hashToken_(token)];
+  tulisSesiPanjang_(semua);
+}
+// Ganti password = semua perangkat lain keluar, perangkat yang sedang dipakai tetap masuk
+function cabutSesiLain_(tokenSaatIni) {
+  const semua = sesiPanjang_(), h = hashToken_(tokenSaatIni), baru = {};
+  if (semua[h]) baru[h] = semua[h];
+  tulisSesiPanjang_(baru);
 }
 
 function gantiPassword_(user, lama, baru) {

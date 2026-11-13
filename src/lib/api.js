@@ -6,8 +6,14 @@ const KEY = 'duitku-token'
 const CACHE = 'duitku-cache'
 const PROFIL = 'duitku-profil'
 
-export const getToken = () => { try { return sessionStorage.getItem(KEY) || '' } catch { return '' } }
-export const setToken = (t) => { try { t ? sessionStorage.setItem(KEY, t) : sessionStorage.removeItem(KEY) } catch {} }
+// ingat = true: simpan di perangkat (untuk HP pribadi, berlaku 30 hari). false: hilang saat tab/aplikasi ditutup.
+export const getToken = () => { try { return sessionStorage.getItem(KEY) || localStorage.getItem(KEY) || '' } catch { return '' } }
+export const setToken = (t, ingat = false) => {
+  try {
+    sessionStorage.removeItem(KEY); localStorage.removeItem(KEY)
+    if (t) (ingat ? localStorage : sessionStorage).setItem(KEY, t)
+  } catch {}
+}
 
 // Salinan data terakhir di perangkat (hanya satu kunci, selalu ditimpa, jadi tidak menumpuk).
 export const bacaCache = () => { try { return JSON.parse(localStorage.getItem(CACHE) || 'null') } catch { return null } }

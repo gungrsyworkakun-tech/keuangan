@@ -4,14 +4,15 @@ import { call, setToken } from '../lib/api'
 export default function Login({ onLogin }) {
   const [u, setU] = useState(''), [p, setP] = useState('')
   const [err, setErr] = useState(''), [busy, setBusy] = useState(false)
+  const [ingat, setIngat] = useState(false)
   const submit = async (e) => {
     e.preventDefault()
     if (!u.trim() || !p) return setErr('Isi username dan password')
     setBusy(true); setErr('')
     try {
-      const r = await call('login', { username: u.trim(), password: p })
+      const r = await call('login', { username: u.trim(), password: p, ingat })
       if (!r.ok) { setErr(r.error || 'Gagal masuk'); setP('') }
-      else { setToken(r.token); onLogin() }
+      else { setToken(r.token, ingat); onLogin() }
     } catch { setErr('Tidak bisa terhubung ke server') }
     setBusy(false)
   }
@@ -22,6 +23,8 @@ export default function Login({ onLogin }) {
         <p className="hint">Masuk untuk melihat keuanganmu.</p>
         <label>Username<input autoComplete="username" value={u} onChange={(e) => setU(e.target.value)} autoFocus /></label>
         <label>Password<input type="password" autoComplete="current-password" value={p} onChange={(e) => setP(e.target.value)} /></label>
+        <label className="cek"><input type="checkbox" checked={ingat} onChange={(e) => setIngat(e.target.checked)} /> Ingat saya di perangkat ini (30 hari)</label>
+        <small className="hint">Centang hanya di HP atau laptop pribadimu.</small>
         {err && <p role="alert" className="out">{err}</p>}
         <button className="btn primary" disabled={busy}>{busy ? 'Memeriksa…' : 'Masuk'}</button>
       </form>

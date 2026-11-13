@@ -50,10 +50,25 @@ function Main({ onKeluar }) {
   const [state, dispatch, meta] = useStore(onKeluar)
   const [route, setRoute] = useState(currentRoute())
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [tipeAwal, setTipeAwal] = useState('out')
   const [info, setInfo] = useState('')
+  const [toast, setToast] = useState('')
+
+  const bukaCatat = (tipe = 'out') => { setTipeAwal(tipe); setDialogOpen(true) }
+  const tampilToast = (t) => { setToast(t); setTimeout(() => setToast(''), 3500) }
 
   useEffect(() => {
-    const on = () => { setRoute(currentRoute()); window.scrollTo(0, 0) }
+    // Pintasan di layar utama HP: #/catat-keluar atau #/catat-masuk langsung membuka form
+    const baca = () => {
+      const h = location.hash
+      if (h.startsWith('#/catat')) {
+        bukaCatat(h === '#/catat-masuk' ? 'in' : 'out')
+        history.replaceState(null, '', location.pathname + location.search + '#/ringkasan')
+      }
+      setRoute(currentRoute())
+    }
+    baca()
+    const on = () => { baca(); window.scrollTo(0, 0) }
     window.addEventListener('hashchange', on)
     return () => window.removeEventListener('hashchange', on)
   }, [])
@@ -77,7 +92,7 @@ function Main({ onKeluar }) {
 
   return (
     <FinanceShell route={route} title={title} nama={meta.profil.nama} username={meta.profil.username}
-      onAdd={() => setDialogOpen(true)} locked={terkunci}
+      onAdd={() => bukaCatat('out')} locked={terkunci}
       saveStatus={terkunci ? (meta.pesan ? 'error' : 'saving') : meta.saveStatus} statusText={statusText} info={info}
       onRetry={terkunci ? meta.muat : meta.simpan}
       onLogout={MODE_SHEETS ? logout : null} onBackup={MODE_SHEETS ? backup : null}>
@@ -86,9 +101,10 @@ function Main({ onKeluar }) {
         : (
           <Suspense fallback={<Skeleton />}>
             <fieldset className="lock" disabled={terkunci}>
-              <Page state={state} dispatch={dispatch} onAdd={() => setDialogOpen(true)} profil={meta.profil} akun={akun} />
+              <Page state={state} dispatch={dispatch} onAdd={() => bukaCatat('out')} profil={meta.profil} akun={akun} />
             </fieldset>
-            <TransactionDialog open={dialogOpen} onClose={() => setDialogOpen(false)} state={state} dispatch={dispatch} />
+            <TransactionDialog open={dialogOpen} onClose={() => setDialogOpen(false)} state={state} dispatch={dispatch} locked={terkunci} awalTipe={tipeAwal} onSaved={tampilToast} />
+            {toast && <div className="toast" role="status">{toast}</div>}
           </Suspense>
         )}
     </FinanceShell>
