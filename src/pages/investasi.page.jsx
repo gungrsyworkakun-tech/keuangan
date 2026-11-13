@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Panel, Empty } from './ui'
 import { BarChart, Donut } from '../components/charts'
-import { rupiah } from '../lib/format'
+import { rupiah, hariIni } from '../lib/format'
 import { JENIS_INVESTASI } from '../lib/store'
 import { call, MODE_SHEETS } from '../lib/api'
 import EditDialog from './edit-dialog'
@@ -16,6 +16,8 @@ const waktuLabel = (iso) => iso ? new Date(iso).toLocaleString('id-ID', { day: '
 export default function Investasi({ state, dispatch }) {
   const [f, setF] = useState({ name: '', type: JENIS_INVESTASI[0], invested: '', sumber: '', kode: '', qty: '' })
   const [ed, setEd] = useState(null)
+  const [d, setD] = useState({ mode: 'tambah', id: '', amount: '', qty: '', acc: '' })
+  const [dPesan, setDPesan] = useState({ t: '', ok: false })
   const [harga, setHarga] = useState({})        // { 'emas:': {p, t} | {err} }
   const [muat, setMuat] = useState('idle')      // idle | loading | ok | error
   const otomatis = useMemo(() => state.investments.filter((i) => i.sumber), [state.investments])
@@ -50,6 +52,23 @@ export default function Investasi({ state, dispatch }) {
     if ((f.sumber === 'kripto' || f.sumber === 'saham') && !f.kode.trim()) return
     dispatch({ type: 'addInvestment', payload: { name: f.name.trim(), type: f.type, invested: Number(f.invested), value: Number(f.invested), sumber: f.sumber, kode: f.sumber === 'emas' || !f.sumber ? '' : f.kode.trim(), qty: auto ? Number(f.qty) : 0 } })
     setF({ ...f, name: '', invested: '', kode: '', qty: '' })
+  }
+  const pilih = state.investments.find((i) => i.id === d.id) || state.investments[0]
+  const kirimDana = (e) => {
+    e.preventDefault()
+    if (!pilih) return
+    const amount = Number(d.amount), qty = Number(d.qty) || 0, n = nilai(pilih)
+    const gagal = (t) => setDPesan({ t, ok: false })
+    if (!(amount > 0)) return gagal('Jumlah (Rp) harus lebih dari 0')
+    if (d.mode === 'tambah' && pilih.sumber && !(qty > 0)) return gagal('Isi juga jumlah ' + SATUAN[pilih.sumber] + ' yang dibeli')
+    if (d.mode === 'tarik' && amount > n) return gagal('Melebihi nilai investasi saat ini (' + rupiah(n) + ')')
+    if (d.mode === 'tarik' && qty > (pilih.qty || 0) && pilih.sumber) return gagal('Melebihi jumlah yang dimiliki (' + pilih.qty + ' ' + SATUAN[pilih.sumber] + ')')
+    const acc = state.accounts.find((a) => a.id === d.acc)
+    if (d.mode === 'tambah' && acc && acc.balance < amount) return gagal('Saldo ' + acc.name + ' tidak cukup')
+    dispatch({ type: d.mode === 'tambah' ? 'investTambah' : 'investTarik', id: pilih.id, amount, qty, nilai: n })
+    if (acc) dispatch({ type: 'addTransaction', payload: { date: hariIni(), desc: (d.mode === 'tambah' ? 'Setor ke ' : 'Tarik dari ') + pilih.name, amount, type: d.mode === 'tambah' ? 'out' : 'in', category: 'Transfer', accountId: acc.id } })
+    setDPesan({ t: d.mode === 'tambah' ? `Dana ${rupiah(amount)} ditambahkan ke ${pilih.name}` : amount >= n ? `${pilih.name} ditarik semua dan dihapus dari portofolio` : `Dana ${rupiah(amount)} ditarik dari ${pilih.name}`, ok: true })
+    setD({ ...d, amount: '', qty: '' })
   }
   const pilihSumber = (sumber) => setF({ ...f, sumber, kode: sumber === 'emasid' ? EMAS_ID[0][0] : '', type: JENIS_DARI_SUMBER[sumber] || f.type })
   const perJenis = {}
@@ -112,6 +131,28 @@ export default function Investasi({ state, dispatch }) {
         ]}
         onSave={(patch) => dispatch({ type: 'updateInvestment', id: ed.id, patch: { ...patch, sumber: patch.sumber || '', kode: patch.sumber === 'emas' || !patch.sumber ? '' : (patch.sumber === 'emasid' && !/\|/.test(patch.kode || '') ? EMAS_ID[0][0] : patch.kode) } })}
         onDelete={() => dispatch({ type: 'deleteInvestment', id: ed.id })} />
+      {state.investments.length > 0 && (
+        <Panel title="Tambah atau tarik dana" sub="Untuk investasi yang sudah ada di portofolio">
+          <div className="chips" role="group" aria-label="Jenis transaksi" style={{ marginBottom: 12 }}>
+            <button type="button" className={'chip' + (d.mode === 'tambah' ? ' on' : '')} onClick={() => { setD({ ...d, mode: 'tambah' }); setDPesan({ t: '', ok: false }) }}>Tambah dana</button>
+            <button type="button" className={'chip' + (d.mode === 'tarik' ? ' on' : '')} onClick={() => { setD({ ...d, mode: 'tarik' }); setDPesan({ t: '', ok: false }) }}>Tarik dana</button>
+          </div>
+          <form className="stack" onSubmit={kirimDana}>
+            <div className="inline">
+              <select value={pilih?.id || ''} onChange={(e) => setD({ ...d, id: e.target.value })} aria-label="Pilih investasi">{state.investments.map((i) => <option key={i.id} value={i.id}>{i.name} · {rupiah(nilai(i))}</option>)}</select>
+              <input type="number" inputMode="numeric" placeholder={d.mode === 'tambah' ? 'Dana yang ditambahkan (Rp)' : 'Dana yang ditarik (Rp)'} value={d.amount} onChange={(e) => setD({ ...d, amount: e.target.value })} aria-label="Jumlah rupiah" />
+              {pilih?.sumber && <input type="number" inputMode="decimal" step="any" placeholder={(d.mode === 'tambah' ? 'Jumlah dibeli' : 'Jumlah dijual') + ' (' + SATUAN[pilih.sumber] + ')'} value={d.qty} onChange={(e) => setD({ ...d, qty: e.target.value })} aria-label="Jumlah unit" />}
+              <select value={d.acc} onChange={(e) => setD({ ...d, acc: e.target.value })} aria-label="Rekening terkait">
+                <option value="">Jangan catat ke rekening</option>
+                {state.accounts.map((a) => <option key={a.id} value={a.id}>{d.mode === 'tambah' ? 'Ambil dari ' : 'Masuk ke '}{a.name}</option>)}
+              </select>
+              <button className="btn primary">{d.mode === 'tambah' ? 'Tambah' : 'Tarik'}</button>
+            </div>
+          </form>
+          {dPesan.t && <p className={dPesan.ok ? 'hint' : 'empty'} role="status">{dPesan.t}</p>}
+          <small className="hint">{d.mode === 'tambah' ? 'Modal dan nilai investasi bertambah sebesar jumlah ini.' : 'Modal berkurang sebanding dengan porsi yang ditarik, jadi untung/rugi tetap benar. Menarik semua nilai akan menghapus investasi dari portofolio.'} Kalau memilih rekening, saldo rekening ikut berubah dan tercatat sebagai Transfer (tidak dihitung pemasukan/pengeluaran).</small>
+        </Panel>
+      )}
       <Panel title="Tambah investasi">
         <form className="stack" onSubmit={add}>
           <div className="inline">

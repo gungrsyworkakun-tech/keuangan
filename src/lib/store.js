@@ -38,6 +38,7 @@ const initial = {
     { id: 'g1', name: 'Dana darurat 6 bulan', target: 30000000, saved: 12000000, deadline: '2026-06-30' },
     { id: 'g2', name: 'Liburan Bali', target: 8000000, saved: 3500000, deadline: '2026-03-15' },
   ],
+  savings: [],
   budgets: [
     { category: 'Makan & minum', limit: 1500000 },
     { category: 'Transport', limit: 800000 },
@@ -47,7 +48,7 @@ const initial = {
   ],
 }
 
-const empty = { accounts: [], transactions: [], investments: [], goals: [], budgets: [] }
+const empty = { accounts: [], transactions: [], investments: [], goals: [], budgets: [], savings: [] }
 
 function reducer(s, a) {
   switch (a.type) {
@@ -121,6 +122,17 @@ function reducer(s, a) {
       return { ...s, accounts: [...s.accounts, { id: uid(), ...a.payload }] }
     case 'addInvestment':
       return { ...s, investments: [...s.investments, { id: uid(), ...a.payload }] }
+    case 'investTambah': // tambah dana ke investasi yang sudah ada: modal dan nilai naik
+      return { ...s, investments: s.investments.map((i) => (i.id === a.id ? { ...i, invested: i.invested + a.amount, value: (a.nilai ?? i.value) + a.amount, qty: (i.qty || 0) + (a.qty || 0) } : i)) }
+    case 'investTarik': { // tarik sebagian/semua: modal berkurang sebanding, kalau habis dihapus dari portofolio
+      const i = s.investments.find((x) => x.id === a.id)
+      if (!i) return s
+      const nilai = a.nilai ?? i.value
+      const rasio = nilai > 0 ? Math.min(1, a.amount / nilai) : 1
+      if (rasio >= 1) return { ...s, investments: s.investments.filter((x) => x.id !== a.id) }
+      const qty = a.qty > 0 ? Math.max(0, (i.qty || 0) - a.qty) : (i.qty || 0) * (1 - rasio)
+      return { ...s, investments: s.investments.map((x) => (x.id === a.id ? { ...x, invested: Math.round(x.invested * (1 - rasio)), value: Math.round(nilai - a.amount), qty } : x)) }
+    }
     case 'updateInvestmentValue':
       return { ...s, investments: s.investments.map((i) => (i.id === a.id ? { ...i, value: a.value } : i)) }
     case 'addGoal':
@@ -130,6 +142,33 @@ function reducer(s, a) {
     case 'setBudget': {
       const rest = s.budgets.filter((b) => b.category !== a.category)
       return { ...s, budgets: a.limit > 0 ? [...rest, { category: a.category, limit: a.limit }] : rest }
+    }
+    case 'updateBudget': { // ubah nama kategori dan/atau batas; kalau nama baru sudah ada, digabung (yang baru menang)
+      const baru = { ...(s.budgets.find((b) => b.category === a.category) || { category: a.category, limit: 0 }), ...a.patch }
+      if (!(baru.limit > 0)) return { ...s, budgets: s.budgets.filter((b) => b.category !== a.category) }
+      const idx = s.budgets.findIndex((b) => b.category === a.category)
+      const rest = s.budgets.filter((b) => b.category !== baru.category && b.category !== a.category)
+      const urut = [...rest]; urut.splice(Math.min(Math.max(idx, 0), urut.length), 0, baru)
+      return { ...s, budgets: urut }
+    }
+    case 'deleteBudget':
+      return { ...s, budgets: s.budgets.filter((b) => b.category !== a.category) }
+    case 'setSaving': { // satu bulan = satu setoran; jumlah <= 0 menghapus
+      const rest = s.savings.filter((x) => x.month !== a.month)
+      const lama = s.savings.find((x) => x.month === a.month)
+      const note = a.note !== undefined ? a.note : lama?.note || ''
+      return { ...s, savings: a.amount > 0 ? [...rest, { id: lama?.id || uid(), month: a.month, amount: a.amount, note }] : rest }
+    }
+    case 'fillSavings': { // isi banyak bulan sekaligus (hanya bulan yang masih kosong, kecuali timpa)
+      const ada = new Set(s.savings.map((x) => x.month))
+      const baru = []
+      const [y0, m0] = a.from.split('-').map(Number), [y1, m1] = a.to.split('-').map(Number)
+      for (let i = y0 * 12 + m0 - 1; i <= y1 * 12 + m1 - 1 && baru.length < 600; i++) {
+        const key = `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`
+        if (!ada.has(key) || a.timpa) baru.push({ id: uid(), month: key, amount: a.amount, note: '' })
+      }
+      const ganti = new Set(baru.map((x) => x.month))
+      return { ...s, savings: [...s.savings.filter((x) => !ganti.has(x.month)), ...baru] }
     }
     default:
       return s

@@ -210,7 +210,9 @@ function segarkanDariSheets(array $cfg, string $token): void {
             $skrg = bacaSalinan($cfg);
             if (!empty($skrg['pending']) || ($skrg['versi'] ?? 0) !== ($d['versi'] ?? 0)) return; // ada simpanan baru, jangan timpa
             tulisJson(berkas($cfg, 'salinan.json'), [
-                'state' => $r['state'], 'profil' => $r['profil'] ?? ($skrg['profil'] ?? null),
+                // kunci yang belum dikenal Sheets (mis. backend lama) tetap dipertahankan dari salinan
+                'state' => $r['state'] + array_diff_key(is_array($skrg['state'] ?? null) ? $skrg['state'] : [], $r['state']),
+                'profil' => $r['profil'] ?? ($skrg['profil'] ?? null),
                 'pending' => false, 'versi' => ($skrg['versi'] ?? 0), 'waktu' => time(),
             ]);
         });

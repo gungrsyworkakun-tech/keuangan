@@ -10,9 +10,11 @@ const TABEL = {
   Investasi: ['id', 'name', 'type', 'invested', 'value', 'sumber', 'kode', 'qty'],
   Goal:      ['id', 'name', 'target', 'saved', 'deadline'],
   Anggaran:  ['category', 'limit'],
+  Tabungan:  ['id', 'month', 'amount', 'note'],
 };
 // nama di aplikasi -> nama tab di Sheets
-const PETA = { transactions: 'Transaksi', accounts: 'Rekening', investments: 'Investasi', goals: 'Goal', budgets: 'Anggaran' };
+const PETA = { transactions: 'Transaksi', accounts: 'Rekening', investments: 'Investasi', goals: 'Goal', budgets: 'Anggaran', savings: 'Tabungan' };
+const OPSIONAL = { savings: 1 }; // boleh tidak dikirim (aplikasi versi lama): isinya dibiarkan apa adanya
 const KOLOM_ANGKA = { amount: 1, balance: 1, invested: 1, value: 1, target: 1, saved: 1, limit: 1, qty: 1 };
 
 const SESI_DETIK = 6 * 60 * 60;   // login berlaku 6 jam
@@ -198,22 +200,24 @@ function bentukTeks_(v) {
   return v === null || v === undefined ? '' : String(v);
 }
 
+function bacaTab_(ss, kunci) {
+  const nama = PETA[kunci], kolom = TABEL[nama];
+  const sh = ss.getSheetByName(nama);
+  const n = sh ? sh.getLastRow() - 1 : 0;
+  const baris = n > 0 ? sh.getRange(2, 1, n, kolom.length).getValues() : [];
+  return baris
+    .filter(function (r) { return r[0] !== '' && r[0] !== null; })
+    .map(function (r) {
+      const o = {};
+      kolom.forEach(function (k, i) { o[k] = KOLOM_ANGKA[k] ? Number(r[i]) || 0 : bentukTeks_(r[i]); });
+      return o;
+    });
+}
+
 function baca_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const hasil = {};
-  Object.keys(PETA).forEach(function (kunci) {
-    const nama = PETA[kunci], kolom = TABEL[nama];
-    const sh = ss.getSheetByName(nama);
-    const n = sh ? sh.getLastRow() - 1 : 0;
-    const baris = n > 0 ? sh.getRange(2, 1, n, kolom.length).getValues() : [];
-    hasil[kunci] = baris
-      .filter(function (r) { return r[0] !== '' && r[0] !== null; })
-      .map(function (r) {
-        const o = {};
-        kolom.forEach(function (k, i) { o[k] = KOLOM_ANGKA[k] ? Number(r[i]) || 0 : bentukTeks_(r[i]); });
-        return o;
-      });
-  });
+  Object.keys(PETA).forEach(function (kunci) { hasil[kunci] = bacaTab_(ss, kunci); });
   return hasil;
 }
 
@@ -238,16 +242,23 @@ function simpan_(state, user) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     Object.keys(PETA).forEach(function (kunci) {
       const daftar = state[kunci];
+      if (daftar === undefined && OPSIONAL[kunci]) return;
       if (!Array.isArray(daftar)) throw new Error('Data ' + kunci + ' tidak valid');
       if (daftar.length > MAKS_BARIS) throw new Error('Data terlalu banyak');
     });
-    const baru = {};
-    Object.keys(PETA).forEach(function (kunci) { baru[kunci] = norm_(kunci, state[kunci]); });
     const lama = bacaCache_(); // bandingkan dengan salinan terakhir: tab yang tidak berubah tidak ditulis ulang (lebih cepat)
+    const baru = {}, lewati = {};
     Object.keys(PETA).forEach(function (kunci) {
+      if (state[kunci] === undefined) { // tab opsional tidak dikirim: biarkan isi Sheets, salinan cepat ikut isi yang ada
+        lewati[kunci] = true;
+        baru[kunci] = lama && Array.isArray(lama[kunci]) ? lama[kunci] : bacaTab_(ss, kunci);
+      } else baru[kunci] = norm_(kunci, state[kunci]);
+    });
+    Object.keys(PETA).forEach(function (kunci) {
+      if (lewati[kunci]) return;
       if (lama && JSON.stringify(lama[kunci]) === JSON.stringify(baru[kunci])) return;
       const nama = PETA[kunci], kolom = TABEL[nama];
-      const sh = ss.getSheetByName(nama);
+      const sh = ss.getSheetByName(nama) || ss.insertSheet(nama);
       const nilai = baru[kunci].map(function (o) { return kolom.map(function (k) { return o[k]; }); });
       sh.getRange(1, 1, 1, kolom.length).setValues([kolom]).setFontWeight('bold');
       const n0 = sh.getLastRow() - 1;
@@ -426,7 +437,14 @@ function hapusCache_() {
 // Baca dari salinan cepat; kalau kosong baru baca Sheets (lalu simpan salinannya)
 function bacaCepat_() {
   const ada = bacaCache_();
-  if (ada) return ada;
+  if (ada) {
+    // salinan lama (sebelum ada tab baru) tidak punya tab opsional: lengkapi dari Sheets
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let kurang = false;
+    Object.keys(PETA).forEach(function (kunci) { if (!Array.isArray(ada[kunci])) { ada[kunci] = bacaTab_(ss, kunci); kurang = true; } });
+    if (kurang) tulisCepat_(ada);
+    return ada;
+  }
   const data = baca_();
   tulisCepat_(data);
   return data;
