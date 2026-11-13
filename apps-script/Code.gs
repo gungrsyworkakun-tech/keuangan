@@ -262,15 +262,69 @@ function hargaSatu_(sumber, kode) {
     const j = ambilJson_('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(kode.toUpperCase()) + '.JK?range=1d&interval=1d');
     return Number(j.chart.result[0].meta.regularMarketPrice);
   }
+  if (sumber === 'emasid') { // kode = 'ANTAM|buyback' -> Rupiah per gram (toko Indonesia)
+    const p = hargaGaleri24_()[kode];
+    if (!(p > 0)) throw new Error('Harga tidak ada');
+    return p;
+  }
   throw new Error('Sumber tidak dikenal');
 }
+/* Harga emas toko Indonesia dari galeri24.co.id/harga-emas (jual & buyback per gram, dari baris 1 gram) */
+const MEREK_G24 = ['GALERI 24', 'ANTAM', 'UBS'];
+function teksHalaman_(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<\/(tr|td|th|div|p|h[1-6]|li|a|span|button|table|section)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .split('\n').map(function (x) { return x.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+}
+function angkaRp_(t) { const m = /^Rp\s?([\d.]+)$/i.exec(t); return m ? Number(m[1].replace(/\./g, '')) : null; }
+function bacaMerek_(baris, merek) {
+  // cari judul bagian (baris yang persis nama merek, mis. "ANTAM") yang diikuti tabel harga
+  for (let i = 0; i < baris.length; i++) {
+    if (baris[i].toUpperCase() !== merek) continue;
+    for (let j = i + 1; j < Math.min(i + 80, baris.length); j++) {
+      if (MEREK_G24.indexOf(baris[j].toUpperCase()) >= 0) break; // masuk bagian merek lain
+      const mb = /^(\d+(?:[.,]\d+)?)\s*(?:gr|gram|g)?$/i.exec(baris[j]);
+      if (!mb || Number(mb[1].replace(',', '.')) !== 1) continue;
+      const jual = angkaRp_(baris[j + 1] || ''), buyback = angkaRp_(baris[j + 2] || '');
+      if (jual > 0 || buyback > 0) return { jual: jual || 0, buyback: buyback || 0 };
+    }
+  }
+  return null;
+}
+function hargaGaleri24_() {
+  const cache = CacheService.getScriptCache(), ada = cache.get('g24_all');
+  if (ada) return JSON.parse(ada);
+  const r = UrlFetchApp.fetch('https://galeri24.co.id/harga-emas', { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (Duitku)' } });
+  if (r.getResponseCode() !== 200) throw new Error('HTTP ' + r.getResponseCode());
+  const baris = teksHalaman_(r.getContentText()), hasil = {};
+  MEREK_G24.forEach(function (m) {
+    const h = bacaMerek_(baris, m);
+    if (h) { if (h.jual > 0) hasil[m + '|jual'] = h.jual; if (h.buyback > 0) hasil[m + '|buyback'] = h.buyback; }
+  });
+  if (!Object.keys(hasil).length) throw new Error('Tabel harga tidak terbaca');
+  cache.put('g24_all', JSON.stringify(hasil), CACHE_HARGA_DETIK);
+  return hasil;
+}
+// Jalankan manual di editor Apps Script untuk mengecek hasil baca harga (lihat "Log eksekusi")
+function ujiHargaEmas() {
+  try { Logger.log(JSON.stringify(hargaGaleri24_())); }
+  catch (e) {
+    Logger.log('GAGAL: ' + e.message);
+    const r = UrlFetchApp.fetch('https://galeri24.co.id/harga-emas', { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (Duitku)' } });
+    Logger.log(teksHalaman_(r.getContentText()).slice(0, 120).join(' | '));
+  }
+}
+
 function ambilHarga_(daftar) {
   if (!Array.isArray(daftar)) return { ok: false, error: 'Permintaan tidak valid' };
   const cache = CacheService.getScriptCache(), hasil = {}, sudah = {};
   daftar.slice(0, 20).forEach(function (d) {
     const sumber = String(d && d.sumber || ''), kode = String(d && d.kode || '').trim();
-    if (['emas', 'kripto', 'saham'].indexOf(sumber) < 0) return;
-    if (sumber !== 'emas' && !/^[A-Za-z0-9.\-]{1,30}$/.test(kode)) { hasil[sumber + ':' + kode] = { err: 'Kode tidak valid' }; return; }
+    if (['emas', 'emasid', 'kripto', 'saham'].indexOf(sumber) < 0) return;
+    if (sumber === 'emasid' && !/^(GALERI 24|ANTAM|UBS)\|(jual|buyback)$/.test(kode)) { hasil[sumber + ':' + kode] = { err: 'Pilihan tidak valid' }; return; }
+    if (sumber !== 'emas' && sumber !== 'emasid' && !/^[A-Za-z0-9.\-]{1,30}$/.test(kode)) { hasil[sumber + ':' + kode] = { err: 'Kode tidak valid' }; return; }
     const kunci = sumber + ':' + (sumber === 'emas' ? '' : kode);
     if (sudah[kunci]) return; sudah[kunci] = 1;
     const ck = 'hrg_' + kunci, ada = cache.get(ck);
