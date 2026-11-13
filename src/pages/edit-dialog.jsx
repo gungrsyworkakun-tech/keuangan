@@ -31,8 +31,8 @@ export default function EditDialog({ item, title, fields, onSave, onDelete, onCl
     <dialog ref={ref} className="dialog" onClose={onClose}>
       <form onSubmit={submit} noValidate>
         <div className="dlg-head"><h2>{title}</h2><button type="button" className="icon-btn" aria-label="Tutup" onClick={onClose}>✕</button></div>
-        {fields.filter((fl) => !fl.tampilJika || fl.tampilJika(f)).map((fl) => (
-          <label key={fl.k}>{fl.label}
+        {fields.filter((fl) => !fl.tampilJika || fl.tampilJika(f)).map((fl, ix) => (
+          <label key={fl.k + ix}>{fl.label}
             {fl.type === 'select'
               ? <select value={f[fl.k] ?? ''} onChange={(e) => setF({ ...f, [fl.k]: e.target.value })}>{fl.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
               : <input type={fl.type} inputMode={fl.type === 'number' ? 'numeric' : undefined} value={f[fl.k] ?? ''} onChange={(e) => setF({ ...f, [fl.k]: e.target.value })} />}

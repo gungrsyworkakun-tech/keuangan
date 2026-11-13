@@ -6,9 +6,10 @@ import { JENIS_INVESTASI } from '../lib/store'
 import { call, MODE_SHEETS } from '../lib/api'
 import EditDialog from './edit-dialog'
 
-const SUMBER = [['', 'Isi nilai manual'], ['emas', 'Emas (per gram, harga dunia)'], ['kripto', 'Kripto (kode CoinGecko)'], ['saham', 'Saham BEI (kode saham)']]
-const JENIS_DARI_SUMBER = { emas: 'Emas', kripto: 'Kripto', saham: 'Saham' }
-const SATUAN = { emas: 'gram', kripto: 'koin', saham: 'lembar' }
+const SUMBER = [['', 'Isi nilai manual'], ['emasid', 'Emas toko Indonesia (Antam, Galeri 24, UBS)'], ['emas', 'Emas harga dunia (acuan)'], ['kripto', 'Kripto (kode CoinGecko)'], ['saham', 'Saham BEI (kode saham)']]
+const EMAS_ID = [['ANTAM|buyback', 'Antam · harga buyback (jual kembali)'], ['ANTAM|jual', 'Antam · harga jual (beli)'], ['GALERI 24|buyback', 'Galeri 24 · harga buyback'], ['GALERI 24|jual', 'Galeri 24 · harga jual'], ['UBS|buyback', 'UBS · harga buyback'], ['UBS|jual', 'UBS · harga jual']]
+const JENIS_DARI_SUMBER = { emasid: 'Emas', emas: 'Emas', kripto: 'Kripto', saham: 'Saham' }
+const SATUAN = { emasid: 'gram', emas: 'gram', kripto: 'koin', saham: 'lembar' }
 const kunci = (i) => i.sumber + ':' + (i.sumber === 'emas' ? '' : (i.kode || ''))
 const waktuLabel = (iso) => iso ? new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
 
@@ -46,11 +47,11 @@ export default function Investasi({ state, dispatch }) {
     const auto = Boolean(f.sumber)
     if (!f.name.trim() || !(Number(f.invested) > 0)) return
     if (auto && !(Number(f.qty) > 0)) return
-    if (f.sumber && f.sumber !== 'emas' && !f.kode.trim()) return
-    dispatch({ type: 'addInvestment', payload: { name: f.name.trim(), type: f.type, invested: Number(f.invested), value: Number(f.invested), sumber: f.sumber, kode: f.sumber === 'emas' ? '' : f.kode.trim(), qty: auto ? Number(f.qty) : 0 } })
+    if ((f.sumber === 'kripto' || f.sumber === 'saham') && !f.kode.trim()) return
+    dispatch({ type: 'addInvestment', payload: { name: f.name.trim(), type: f.type, invested: Number(f.invested), value: Number(f.invested), sumber: f.sumber, kode: f.sumber === 'emas' || !f.sumber ? '' : f.kode.trim(), qty: auto ? Number(f.qty) : 0 } })
     setF({ ...f, name: '', invested: '', kode: '', qty: '' })
   }
-  const pilihSumber = (sumber) => setF({ ...f, sumber, type: JENIS_DARI_SUMBER[sumber] || f.type })
+  const pilihSumber = (sumber) => setF({ ...f, sumber, kode: sumber === 'emasid' ? EMAS_ID[0][0] : '', type: JENIS_DARI_SUMBER[sumber] || f.type })
   const perJenis = {}
   state.investments.forEach((i) => (perJenis[i.type] = (perJenis[i.type] || 0) + nilai(i)))
   const alok = Object.entries(perJenis).map(([label, value]) => ({ label, value })).filter((x) => x.value > 0)
@@ -108,10 +109,11 @@ export default function Investasi({ state, dispatch }) {
           { k: 'invested', label: 'Modal (Rp)', type: 'number', min: 0 },
           { k: 'sumber', label: 'Cara hitung nilai', type: 'select', options: SUMBER },
           { k: 'kode', label: 'Kode (mis. BBCA / bitcoin)', type: 'text', tampilJika: (x) => x.sumber === 'kripto' || x.sumber === 'saham' },
+          { k: 'kode', label: 'Merek & jenis harga', type: 'select', options: EMAS_ID, tampilJika: (x) => x.sumber === 'emasid' },
           { k: 'qty', label: 'Jumlah (gram / koin / lembar)', type: 'number', min: 0, tampilJika: (x) => Boolean(x.sumber) },
           { k: 'value', label: 'Nilai sekarang (Rp)', type: 'number', min: 0, tampilJika: (x) => !x.sumber },
         ]}
-        onSave={(patch) => dispatch({ type: 'updateInvestment', id: ed.id, patch: { ...patch, sumber: patch.sumber || '', kode: patch.sumber === 'emas' || !patch.sumber ? '' : patch.kode } })}
+        onSave={(patch) => dispatch({ type: 'updateInvestment', id: ed.id, patch: { ...patch, sumber: patch.sumber || '', kode: patch.sumber === 'emas' || !patch.sumber ? '' : (patch.sumber === 'emasid' && !/\|/.test(patch.kode || '') ? EMAS_ID[0][0] : patch.kode) } })}
         onDelete={() => dispatch({ type: 'deleteInvestment', id: ed.id })} />
       <Panel title="Tambah investasi">
         <form className="stack" onSubmit={add}>
@@ -122,12 +124,13 @@ export default function Investasi({ state, dispatch }) {
           <div className="inline">
             <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} aria-label="Jenis">{JENIS_INVESTASI.map((j) => <option key={j}>{j}</option>)}</select>
             {(f.sumber === 'kripto' || f.sumber === 'saham') && <input placeholder={f.sumber === 'saham' ? 'Kode saham, mis. BBCA' : 'ID koin, mis. bitcoin'} value={f.kode} onChange={(e) => setF({ ...f, kode: e.target.value })} aria-label="Kode" />}
+            {f.sumber === 'emasid' && <select value={f.kode} onChange={(e) => setF({ ...f, kode: e.target.value })} aria-label="Merek dan jenis harga">{EMAS_ID.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
             {f.sumber && <input type="number" inputMode="decimal" step="any" placeholder={'Jumlah (' + SATUAN[f.sumber] + ')'} value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} aria-label="Jumlah" />}
             <input type="number" inputMode="numeric" placeholder="Modal / total beli (Rp)" value={f.invested} onChange={(e) => setF({ ...f, invested: e.target.value })} aria-label="Modal" />
             <button className="btn primary">Tambah</button>
           </div>
         </form>
-        <small className="hint">Pilih “Emas” lalu isi jumlah gram: nilainya otomatis ikut harga emas hari ini, dan untung/rugi dihitung dari modal. Harga emas memakai harga dunia (acuan), bisa sedikit berbeda dari harga toko atau Antam.</small>
+        <small className="hint">Pilih “Emas toko Indonesia” lalu isi jumlah gram: nilainya otomatis ikut harga Antam/Galeri 24/UBS hari ini (dari galeri24.co.id), dan untung/rugi dihitung dari modal. Pakai harga buyback kalau mau tahu nilai saat emas dijual kembali.</small>
       </Panel>
     </>
   )
