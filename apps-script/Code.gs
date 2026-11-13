@@ -23,11 +23,11 @@ const MAKS_BARIS = 5000;          // batas pengaman ukuran data
 
 /* ---------- SETUP (jalankan sekali) ---------- */
 function setupAwal() {
-  const props = PropertiesService.getScriptProperties();
-  const user = props.getProperty('ADMIN_USER');
-  const pass = props.getProperty('ADMIN_PASS');
-  if (!user || !pass) throw new Error('Isi dulu Script Properties ADMIN_USER dan ADMIN_PASS (lihat README).');
-  if (pass.length < 8) throw new Error('Password minimal 8 karakter.');
+  // >>> UBAH DI SINI kalau mau username/password lain (password minimal 8 karakter) <<<
+  const USER_AWAL = 'admin';
+  const PASS_AWAL = 'admin123';
+
+  if (PASS_AWAL.length < 8) throw new Error('Password minimal 8 karakter.');
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   Object.keys(TABEL).forEach(function (nama) {
@@ -36,11 +36,11 @@ function setupAwal() {
     sh.getRange(2, 1, sh.getMaxRows() - 1, TABEL[nama].length).setNumberFormat('@'); // teks polos, cegah rumus nyasar
     sh.setFrozenRows(1);
   });
-  simpanUser_(user, pass);
-  props.deleteProperty('ADMIN_PASS'); // password asli dihapus, tinggal hash-nya
-  props.setProperty('HAS_SETUP', '1');
+  // akun hanya dibuat jika belum ada (aman kalau fungsi ini dijalankan ulang)
+  if (!daftarUser_()[USER_AWAL.toLowerCase()]) simpanUser_(USER_AWAL, PASS_AWAL);
+  PropertiesService.getScriptProperties().setProperty('HAS_SETUP', '1');
   pasangTriggerBackup();
-  Logger.log('Setup selesai untuk user: ' + user);
+  Logger.log('Setup selesai untuk user: ' + USER_AWAL);
 }
 
 function pasangTriggerBackup() {
@@ -61,7 +61,8 @@ function doPost(e) {
     const user = cekSesi_(req.token);
     if (!user) return json_({ ok: false, error: 'Sesi habis, silakan login lagi', auth: false });
     switch (req.action) {
-      case 'load':   return json_({ ok: true, state: baca_() });
+      case 'load':   return json_({ ok: true, state: bacaCepat_(), profil: profil_(user) });
+      case 'saveProfile': return json_(simpanProfil_(user, req.nama));
       case 'save':   return json_(simpan_(req.state, user));
       case 'backup': return json_({ ok: true, nama: backupSekarang() });
       case 'logout': CacheService.getScriptCache().remove('sess_' + req.token); return json_({ ok: true });
@@ -121,7 +122,7 @@ function login_(username, password) {
   cache.remove(kunci);
   const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
   cache.put('sess_' + token, u, SESI_DETIK);
-  return { ok: true, token: token, user: u };
+  return { ok: true, token: token, user: u, profil: profil_(u) };
 }
 
 function cekSesi_(token) {
@@ -190,12 +191,40 @@ function simpan_(state, user) {
         rentang.setValues(nilai);
       }
     });
+    CacheService.getScriptCache().remove('data_v1'); // data berubah, hapus salinan cepat
     return { ok: true, waktu: new Date().toISOString(), oleh: user };
   } catch (err) {
     return { ok: false, error: String(err.message || 'Gagal menyimpan') };
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ---------- PROFIL & PEMBACAAN CEPAT ---------- */
+function profil_(user) {
+  const semua = JSON.parse(PropertiesService.getScriptProperties().getProperty('PROFIL') || '{}');
+  const p = semua[user] || {};
+  return { username: user, nama: p.nama || user };
+}
+
+function simpanProfil_(user, nama) {
+  const bersih = String(nama || '').replace(/[<>]/g, '').trim().slice(0, 40);
+  if (!bersih) return { ok: false, error: 'Nama tidak boleh kosong' };
+  const props = PropertiesService.getScriptProperties();
+  const semua = JSON.parse(props.getProperty('PROFIL') || '{}');
+  semua[user] = { nama: bersih };
+  props.setProperty('PROFIL', JSON.stringify(semua));
+  return { ok: true, profil: profil_(user) };
+}
+
+// Baca dari salinan cepat (10 menit); kalau kosong baru baca Sheets
+function bacaCepat_() {
+  const cache = CacheService.getScriptCache();
+  const ada = cache.get('data_v1');
+  if (ada) { try { return JSON.parse(ada); } catch (e) {} }
+  const data = baca_();
+  try { cache.put('data_v1', JSON.stringify(data), 600); } catch (e) {} // data besar (>100KB) dilewati
+  return data;
 }
 
 /* ---------- BACKUP KE DRIVE ---------- */

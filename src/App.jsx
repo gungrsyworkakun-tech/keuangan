@@ -1,26 +1,49 @@
-import { useEffect, useState } from 'react'
+import { Component, Suspense, lazy, useEffect, useState } from 'react'
 import { useStore } from './lib/store'
-import { MODE_SHEETS, call, getToken, setToken } from './lib/api'
+import { MODE_SHEETS, call, getToken, setToken, hapusCache } from './lib/api'
 import FinanceShell, { MENU } from './layouts/finance-shell.layout.jsx'
 import TransactionDialog from './pages/transaction-dialog.jsx'
 import Login from './pages/login.page.jsx'
-import Ringkasan from './pages/ringkasan.page.jsx'
-import Transaksi from './pages/transaksi.page.jsx'
-import SisaBank from './pages/sisa-bank.page.jsx'
-import Investasi from './pages/investasi.page.jsx'
-import Goal from './pages/goal.page.jsx'
-import Anggaran from './pages/anggaran.page.jsx'
+import { Skeleton } from './pages/ui.jsx'
 
-const PAGES = { ringkasan: Ringkasan, transaksi: Transaksi, bank: SisaBank, investasi: Investasi, goal: Goal, anggaran: Anggaran }
+// Tiap halaman dimuat saat dibuka, jadi buka pertama kali lebih cepat
+const PAGES = {
+  ringkasan: lazy(() => import('./pages/ringkasan.page.jsx')),
+  transaksi: lazy(() => import('./pages/transaksi.page.jsx')),
+  bank: lazy(() => import('./pages/sisa-bank.page.jsx')),
+  investasi: lazy(() => import('./pages/investasi.page.jsx')),
+  goal: lazy(() => import('./pages/goal.page.jsx')),
+  anggaran: lazy(() => import('./pages/anggaran.page.jsx')),
+  profil: lazy(() => import('./pages/profil.page.jsx')),
+}
 const currentRoute = () => {
   const r = location.hash.replace('#/', '')
   return PAGES[r] ? r : 'ringkasan'
 }
 
+class Penjaga extends Component {
+  state = { err: null }
+  static getDerivedStateFromError(err) { return { err } }
+  render() {
+    if (!this.state.err) return this.props.children
+    return (
+      <div className="login-wrap"><div className="panel login">
+        <h2>Ups, ada yang tidak beres</h2>
+        <p className="hint">Datamu aman. Muat ulang halaman untuk melanjutkan.</p>
+        <button className="btn primary" onClick={() => location.reload()}>Muat ulang</button>
+      </div></div>
+    )
+  }
+}
+
 export default function App() {
   const [masuk, setMasuk] = useState(!MODE_SHEETS || Boolean(getToken()))
-  if (!masuk) return <Login onLogin={() => setMasuk(true)} />
-  return <Main onKeluar={() => { setToken(''); setMasuk(false) }} />
+  const keluar = () => { setToken(''); hapusCache(); setMasuk(false) }
+  return (
+    <Penjaga>
+      {masuk ? <Main onKeluar={keluar} /> : <Login onLogin={() => setMasuk(true)} />}
+    </Penjaga>
+  )
 }
 
 function Main({ onKeluar }) {
@@ -30,7 +53,7 @@ function Main({ onKeluar }) {
   const [info, setInfo] = useState('')
 
   useEffect(() => {
-    const on = () => setRoute(currentRoute())
+    const on = () => { setRoute(currentRoute()); window.scrollTo(0, 0) }
     window.addEventListener('hashchange', on)
     return () => window.removeEventListener('hashchange', on)
   }, [])
@@ -44,18 +67,30 @@ function Main({ onKeluar }) {
 
   const Page = PAGES[route]
   const title = MENU.find((m) => m.id === route).label
-  const statusText = !MODE_SHEETS ? 'Mode lokal (belum terhubung Sheets)'
-    : meta.saveStatus === 'saving' ? 'Menyimpan…' : meta.saveStatus === 'error' ? 'Gagal menyimpan: ' + meta.pesan : 'Tersimpan di Google Sheets'
+  const terkunci = MODE_SHEETS && !meta.segar
+  const statusText = !MODE_SHEETS ? 'Mode lokal'
+    : terkunci ? (meta.pesan ? meta.pesan + ' · baca saja' : 'Menyinkronkan…')
+    : meta.saveStatus === 'saving' ? 'Menyimpan…'
+    : meta.saveStatus === 'error' ? 'Gagal menyimpan: ' + meta.pesan
+    : 'Tersimpan di Sheets'
+  const akun = { profil: meta.profil, simpanProfil: meta.simpanProfil, gantiPassword: meta.gantiPassword, sheets: MODE_SHEETS, onLogout: logout, onBackup: backup }
 
   return (
-    <FinanceShell route={route} title={title} onAdd={() => setDialogOpen(true)}
-      onLogout={MODE_SHEETS ? logout : null} onBackup={MODE_SHEETS ? backup : null} status={info || statusText} statusError={meta.saveStatus === 'error'}>
-      {meta.status === 'loading' ? <p className="empty">Memuat data…</p>
-        : meta.status === 'error' ? <p role="alert" className="out">{meta.pesan}</p>
-        : <>
-            <Page state={state} dispatch={dispatch} onAdd={() => setDialogOpen(true)} />
+    <FinanceShell route={route} title={title} nama={meta.profil.nama} username={meta.profil.username}
+      onAdd={() => setDialogOpen(true)} locked={terkunci}
+      saveStatus={terkunci ? (meta.pesan ? 'error' : 'saving') : meta.saveStatus} statusText={statusText} info={info}
+      onRetry={terkunci ? meta.muat : meta.simpan}
+      onLogout={MODE_SHEETS ? logout : null} onBackup={MODE_SHEETS ? backup : null}>
+      {meta.status === 'loading' ? <Skeleton />
+        : meta.status === 'error' ? <div className="panel"><p role="alert" className="out">{meta.pesan}</p><button className="btn primary" onClick={() => location.reload()}>Coba lagi</button></div>
+        : (
+          <Suspense fallback={<Skeleton />}>
+            <fieldset className="lock" disabled={terkunci}>
+              <Page state={state} dispatch={dispatch} onAdd={() => setDialogOpen(true)} profil={meta.profil} akun={akun} />
+            </fieldset>
             <TransactionDialog open={dialogOpen} onClose={() => setDialogOpen(false)} state={state} dispatch={dispatch} />
-          </>}
+          </Suspense>
+        )}
     </FinanceShell>
   )
 }

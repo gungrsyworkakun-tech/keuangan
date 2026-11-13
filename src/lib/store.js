@@ -1,6 +1,6 @@
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { uid } from './format'
-import { MODE_SHEETS, call } from './api'
+import { MODE_SHEETS, call, bacaCache, tulisCache, bacaProfil, tulisProfil } from './api'
 
 export const KATEGORI_KELUAR = ['Makan & minum', 'Transport', 'Tagihan', 'Belanja', 'Hiburan', 'Kesehatan', 'Lainnya']
 export const KATEGORI_MASUK = ['Gaji', 'Bonus', 'Usaha', 'Lainnya']
@@ -75,46 +75,92 @@ function reducer(s, a) {
 }
 
 export function useStore(onAuthError) {
+  const cache = MODE_SHEETS ? bacaCache() : null
+  const adaCache = Boolean(cache && cache.state)
   const [state, dispatch] = useReducer(reducer, null, () => {
-    if (MODE_SHEETS) return empty
+    if (MODE_SHEETS) return adaCache ? { ...empty, ...cache.state } : empty
     try {
       const raw = localStorage.getItem('duitku-state')
       return raw ? { ...initial, ...JSON.parse(raw) } : initial
     } catch { return initial }
   })
-  const [status, setStatus] = useState(MODE_SHEETS ? 'loading' : 'ready') // loading | ready | error
-  const [saveStatus, setSaveStatus] = useState('saved') // saved | saving | error
+  const [profil, setProfil] = useState(() => bacaProfil() || { nama: '', username: '' })
+  const [status, setStatus] = useState(MODE_SHEETS && !adaCache ? 'loading' : 'ready') // loading | ready | error
+  const [segar, setSegar] = useState(!MODE_SHEETS)        // data sudah dicocokkan dengan server
+  const [saveStatus, setSaveStatus] = useState('saved')   // saved | saving | error
   const [pesan, setPesan] = useState('')
-  const skip = useRef(true)
 
-  // muat data dari Sheets
-  useEffect(() => {
+  const stateRef = useRef(state); stateRef.current = state
+  const skip = useRef(true)
+  const sibuk = useRef(false), antre = useRef(false), belumTersimpan = useRef(false)
+
+  // Hanya boleh mengubah data setelah data cocok dengan server (mencegah menimpa data yang lebih baru).
+  const act = useCallback((a) => {
+    if (MODE_SHEETS && !segar) return
+    belumTersimpan.current = true
+    dispatch(a)
+  }, [segar])
+
+  // 1) muat dari Sheets (data lama di perangkat tampil dulu agar terasa cepat)
+  const muat = useCallback(() => {
     if (!MODE_SHEETS) return
-    let batal = false
+    setPesan('')
     call('load').then((r) => {
-      if (batal) return
       if (r.auth === false) return onAuthError()
-      if (!r.ok) { setStatus('error'); setPesan(r.error || 'Gagal memuat data'); return }
+      if (!r.ok) { setPesan(r.error || 'Gagal memuat data'); setStatus(adaCache ? 'ready' : 'error'); return }
+      if (r.profil) { setProfil(r.profil); tulisProfil(r.profil) }
       skip.current = true
       dispatch({ type: 'replace', state: r.state })
-      setStatus('ready')
-    }).catch(() => { if (!batal) { setStatus('error'); setPesan('Tidak bisa terhubung ke server') } })
-    return () => { batal = true }
+      tulisCache(r.state)
+      setStatus('ready'); setSegar(true)
+    }).catch(() => {
+      setPesan('Tidak bisa terhubung ke server')
+      setStatus(adaCache ? 'ready' : 'error')
+    })
+  }, [])
+  useEffect(() => { muat() }, [])
+
+  // 2) simpan ke Sheets, satu per satu (tidak bertabrakan)
+  const simpan = useCallback(async () => {
+    if (sibuk.current) { antre.current = true; return }
+    sibuk.current = true
+    setSaveStatus('saving')
+    try {
+      const potret = stateRef.current
+      const r = await call('save', { state: potret })
+      if (r.auth === false) { onAuthError(); return }
+      if (r.ok) {
+        tulisCache(potret)
+        if (!antre.current) { belumTersimpan.current = false; setSaveStatus('saved') }
+      } else { setSaveStatus('error'); setPesan(r.error || 'Gagal menyimpan') }
+    } catch { setSaveStatus('error'); setPesan('Gagal menyimpan, cek koneksi') }
+    finally {
+      sibuk.current = false
+      if (antre.current) { antre.current = false; simpan() }
+    }
   }, [])
 
-  // simpan ke Sheets (setelah berhenti mengubah 0,8 detik)
   useEffect(() => {
     if (!MODE_SHEETS || status !== 'ready') return
     if (skip.current) { skip.current = false; return }
     setSaveStatus('saving')
-    const t = setTimeout(() => {
-      call('save', { state }).then((r) => {
-        if (r.auth === false) return onAuthError()
-        setSaveStatus(r.ok ? 'saved' : 'error'); if (!r.ok) setPesan(r.error || 'Gagal menyimpan')
-      }).catch(() => { setSaveStatus('error'); setPesan('Gagal menyimpan, cek koneksi') })
-    }, 800)
+    const t = setTimeout(simpan, 800)
     return () => clearTimeout(t)
   }, [state, status])
+
+  // 3) jangan sampai data hilang saat tab ditutup / pindah aplikasi
+  useEffect(() => {
+    if (!MODE_SHEETS) return
+    const keluar = (e) => { if (belumTersimpan.current) { e.preventDefault(); e.returnValue = '' } }
+    const sembunyi = () => {
+      if (document.visibilityState === 'hidden' && belumTersimpan.current && !sibuk.current) {
+        call('save', { state: stateRef.current }, { keepalive: true }).catch(() => {})
+      }
+    }
+    window.addEventListener('beforeunload', keluar)
+    document.addEventListener('visibilitychange', sembunyi)
+    return () => { window.removeEventListener('beforeunload', keluar); document.removeEventListener('visibilitychange', sembunyi) }
+  }, [])
 
   // mode lokal
   useEffect(() => {
@@ -122,5 +168,21 @@ export function useStore(onAuthError) {
     try { localStorage.setItem('duitku-state', JSON.stringify(state)) } catch {}
   }, [state])
 
-  return [state, dispatch, { status, saveStatus, pesan }]
+  // profil & password
+  const simpanProfil = async (nama) => {
+    const bersih = String(nama || '').trim().slice(0, 40)
+    if (!bersih) throw new Error('Nama tidak boleh kosong')
+    if (!MODE_SHEETS) { const p = { ...profil, nama: bersih }; setProfil(p); tulisProfil(p); return }
+    const r = await call('saveProfile', { nama: bersih })
+    if (r.auth === false) { onAuthError(); throw new Error('Sesi habis, silakan login lagi') }
+    if (!r.ok) throw new Error(r.error || 'Gagal menyimpan profil')
+    setProfil(r.profil); tulisProfil(r.profil)
+  }
+  const gantiPassword = async (lama, baru) => {
+    const r = await call('changePassword', { oldPassword: lama, newPassword: baru })
+    if (r.auth === false) { onAuthError(); throw new Error('Sesi habis, silakan login lagi') }
+    if (!r.ok) throw new Error(r.error || 'Gagal mengganti password')
+  }
+
+  return [state, act, { status, segar, saveStatus, pesan, profil, simpan, muat, simpanProfil, gantiPassword }]
 }

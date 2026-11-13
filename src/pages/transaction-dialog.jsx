@@ -36,7 +36,7 @@ export default function TransactionDialog({ open, onClose, state, dispatch }) {
           <button type="button" className={f.type === 'in' ? 'on' : ''} onClick={() => set('type', 'in')}>Pemasukan</button>
         </div>
         <label>Keterangan<input value={f.desc} onChange={(e) => set('desc', e.target.value)} />{err.desc && <em>{err.desc}</em>}</label>
-        <label>Nominal (Rp)<input type="number" min="0" value={f.amount} onChange={(e) => set('amount', e.target.value)} />{err.amount && <em>{err.amount}</em>}</label>
+        <label>Nominal (Rp)<input type="number" inputMode="numeric" min="0" value={f.amount} onChange={(e) => set('amount', e.target.value)} />{err.amount && <em>{err.amount}</em>}</label>
         <div className="row2">
           <label>Tanggal<input type="date" value={f.date} onChange={(e) => set('date', e.target.value)} />{err.date && <em>{err.date}</em>}</label>
           <label>Kategori<select value={f.category} onChange={(e) => set('category', e.target.value)}>{cats.map((c) => <option key={c}>{c}</option>)}</select></label>
