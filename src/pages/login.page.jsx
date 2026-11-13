@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { call, setToken } from '../lib/api'
+import { Progres, useProgres } from './ui.jsx'
 
 export default function Login({ onLogin }) {
   const [u, setU] = useState(''), [p, setP] = useState('')
   const [err, setErr] = useState(''), [busy, setBusy] = useState(false)
   const [ingat, setIngat] = useState(false)
+  const prog = useProgres(['login'], busy)
   const submit = async (e) => {
     e.preventDefault()
     if (!u.trim() || !p) return setErr('Isi username dan password')
@@ -25,6 +27,7 @@ export default function Login({ onLogin }) {
         <label>Password<input type="password" autoComplete="current-password" value={p} onChange={(e) => setP(e.target.value)} /></label>
         <label className="cek"><input type="checkbox" checked={ingat} onChange={(e) => setIngat(e.target.checked)} /> Ingat saya di perangkat ini (30 hari)</label>
         <small className="hint">Centang hanya di HP atau laptop pribadimu.</small>
+        {busy && <Progres {...prog} />}
         {err && <p role="alert" className="out">{err}</p>}
         <button className="btn primary" disabled={busy}>{busy ? 'Memeriksa…' : 'Masuk'}</button>
       </form>
