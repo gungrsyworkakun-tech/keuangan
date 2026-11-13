@@ -1,0 +1,5 @@
+# config.php tidak boleh dibuka langsung dari browser
+<Files "config.php">
+  Require all denied
+</Files>
+Options -Indexes
