@@ -50,6 +50,16 @@ function pasangTriggerBackup() {
   ScriptApp.newTrigger('backupHarian').timeBased().everyDays(1).atHour(2).create();
 }
 
+/* ---------- JAGA TETAP CEPAT ---------- */
+// Dijalankan tiap 5 menit agar salinan data selalu siap -> aplikasi terbuka lebih cepat di HP
+function jagaHangat() { bacaCepat_(); }
+function pasangTriggerHangat() { // jalankan SEKALI dari editor
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'jagaHangat') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('jagaHangat').timeBased().everyMinutes(5).create();
+}
+
 /* ---------- WEB APP ---------- */
 function doGet() { return json_({ ok: true, app: 'duitku' }); }
 
