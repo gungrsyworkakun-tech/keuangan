@@ -1,0 +1,23 @@
+:root {
+  --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --color-bg: #f5f6f4;
+  --color-surface: #ffffff;
+  --color-text: #15201a;
+  --color-muted: #5d6b63;
+  --color-border: #dfe4e0;
+  --color-primary: #12634a;
+  --color-primary-hover: #0e4f3b;
+  --color-primary-soft: #e3f1ec;
+  --color-success: #1a7f4b;
+  --color-danger: #c0392b;
+  --color-warning: #b7791f;
+  --color-focus: #2f80ed;
+  --data-1: #12634a; --data-2: #3b82a0; --data-3: #d19a2a; --data-4: #8a6bbf;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px;
+  --radius: 12px;
+}
+* { box-sizing: border-box; }
+html { font-family: var(--font-body); color: var(--color-text); background: var(--color-bg); }
+body { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
