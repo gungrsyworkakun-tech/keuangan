@@ -179,3 +179,18 @@ input:disabled { background: var(--color-bg); color: var(--color-muted); }
 .dialog form, .dialog label { grid-template-columns: minmax(0, 1fr); } .dialog input, .dialog select { width: 100%; }
 .hargabar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 var(--space-4); padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); font-size: 13px; color: var(--color-muted, #5b665f); } .hargabar .btn { flex: none; }
 .stack { display: grid; gap: var(--space-3); } .stack .inline { flex-wrap: wrap; } .stack .inline > * { flex: 1 1 160px; min-width: 0; }
+
+/* ===== Kerapian mobile: tidak ada yang keluar frame ===== */
+html { overflow-x: clip; } img, svg, video, canvas { max-width: 100%; }
+.stack, .stack > * { grid-template-columns: minmax(0, 1fr); } .stack .inline { grid-template-columns: none; }
+.panel { min-width: 0; } .panel > * { min-width: 0; }
+.linkbtn { justify-self: start; text-align: left; min-height: 32px; display: inline-flex; align-items: center; }
+.btnrow .right { text-align: right; flex: none; } .btnrow .num { font-variant-numeric: tabular-nums; }
+.trow small { overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .toolbar { display: grid; gap: var(--space-2); } .toolbar .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%; } .toolbar input { width: 100%; }
+  .inline > .btn { flex: 1 1 100%; } .stack .inline > .btn { flex: 1 1 100%; }
+  .hero-amt { font-size: clamp(26px, 8vw, 34px); overflow-wrap: anywhere; }
+  .hero-sub { flex-wrap: wrap; gap: var(--space-3) var(--space-5); }
+}
+.chip { max-width: 72vw; overflow: hidden; text-overflow: ellipsis; }

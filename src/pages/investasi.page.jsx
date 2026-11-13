@@ -81,24 +81,21 @@ export default function Investasi({ state, dispatch }) {
           {alok.length === 0 ? <Empty>Belum ada investasi.</Empty> : <Donut items={alok} />}
         </Panel>
       </div>
-      <Panel title="Portofolio" sub="Selisih nilai sekarang dengan modal">
+      <Panel title="Portofolio" sub="Ketuk untuk mengubah atau menghapus">
         {state.investments.length === 0 ? <Empty>Belum ada investasi.</Empty> : state.investments.map((i) => {
           const n = nilai(i), g = n - i.invested, h = i.sumber ? harga[kunci(i)] : null
           return (
-            <div key={i.id} className="trow">
+            <button key={i.id} className="trow btnrow" onClick={() => setEd(i)} aria-label={'Ubah ' + i.name}>
               <div>
                 <strong>{i.name}</strong>
                 <small>{i.type} · modal {rupiah(i.invested)}</small>
-                {i.sumber && <small>{i.qty} {SATUAN[i.sumber]}{h?.p ? ` × ${rupiah(h.p)}/${SATUAN[i.sumber]}` : h?.err ? ` · ${h.err}` : ''}</small>}
-                <button className="linkbtn" onClick={() => setEd(i)}>Ubah / hapus</button>
+                {i.sumber && <small>{i.qty} {SATUAN[i.sumber]}{h?.p ? ` × ${rupiah(h.p)}` : h?.err ? ` · ${h.err}` : ''}</small>}
               </div>
               <div className="right">
-                {i.sumber
-                  ? <b className="num">{rupiah(n)}</b>
-                  : <label className="mini">Nilai<input type="number" inputMode="numeric" defaultValue={i.value} onBlur={(e) => Number(e.target.value) >= 0 && Number(e.target.value) !== i.value && dispatch({ type: 'updateInvestmentValue', id: i.id, value: Number(e.target.value) })} /></label>}
+                <b className="num">{rupiah(n)}</b>
                 <small className={g >= 0 ? 'in' : 'out'}>{g >= 0 ? '+' : '−'}{rupiah(Math.abs(g))}{i.invested ? ` (${((g / i.invested) * 100).toFixed(1)}%)` : ''}</small>
               </div>
-            </div>
+            </button>
           )
         })}
       </Panel>

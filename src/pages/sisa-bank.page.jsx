@@ -22,9 +22,9 @@ export default function SisaBank({ state, dispatch }) {
         <div className="hero-sub"><div><small>Jumlah rekening</small><b>{state.accounts.length}</b></div></div>
       </section>
       <div className="grid-main">
-        <Panel title="Rekening & dompet">
+        <Panel title="Rekening & dompet" sub="Ketuk rekening untuk mengubah saldo">
           {state.accounts.length === 0 ? <Empty>Belum ada rekening.</Empty> : state.accounts.map((a) => (
-            <button key={a.id} className="trow btnrow" onClick={() => setEd(a)} aria-label={'Ubah ' + a.name}><div><strong>{a.name}</strong><small>{total ? Math.round((a.balance / total) * 100) : 0}% dari total · ketuk untuk ubah</small></div><b className="num">{rupiah(a.balance)}</b></button>
+            <button key={a.id} className="trow btnrow" onClick={() => setEd(a)} aria-label={'Ubah ' + a.name}><div><strong>{a.name}</strong><small>{total ? Math.round((a.balance / total) * 100) : 0}% dari total</small></div><b className="num">{rupiah(a.balance)}</b></button>
           ))}
         </Panel>
         <Panel title="Sebaran saldo">
