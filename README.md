@@ -54,3 +54,11 @@ Tanpa `VITE_API_URL` aplikasi jalan dalam **mode lokal** (data hanya di browser,
 - Ponsel: navigasi bawah + tombol tambah, form naik dari bawah.
 - Cepat & stabil: data lama tampil dulu lalu dicocokkan ke server, simpan satu per satu, peringatan jika tab ditutup sebelum tersimpan.
 - Setelah mengubah `Code.gs`: **Terapkan → Kelola deployment → ikon pensil → Versi: Versi baru → Terapkan** (URL tetap).
+
+## Opsional – Perantara cepat di hosting (PHP)
+Kalau buka/simpan terasa lama (Apps Script sering "tidur"), taruh folder `proxy/` di hosting PHP. Data tetap di Google Sheets; hosting menyimpan salinan supaya buka dan simpan terasa instan, lalu mengirim perubahan ke Sheets di belakang layar.
+1. Upload folder `proxy/` ke hosting (mis. `public_html/duitku/`). Wajib HTTPS.
+2. Salin `config.contoh.php` menjadi `config.php`, isi `apps_script_url` dan `origin` (alamat GitHub Pages-mu). Lebih aman lagi: isi `data_dir` dengan folder di luar `public_html`.
+3. Buka `https://domainmu/duitku/api.php` di browser: harus muncul `{"ok":true,"app":"duitku-proxy"}`.
+4. Repo → Settings → Variables → ubah `VITE_API_URL` menjadi `https://domainmu/duitku/api.php`, lalu jalankan ulang workflow (Actions → Deploy → Run workflow).
+Login, ganti password, backup, dan pembatasan percobaan login tetap dijaga Apps Script. Perantara hanya menyimpan hash token sesi, bukan password.
