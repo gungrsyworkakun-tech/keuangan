@@ -12,6 +12,10 @@ export const adalahTransfer = (t) => t.category === 'Transfer'
 export const tipeTampil = (t) => (adalahTransfer(t) ? (t.type === 'in' ? 'tin' : 'tout') : t.type)
 export const JENIS_INVESTASI = ['Reksa dana', 'Saham', 'Emas', 'Obligasi', 'Kripto', 'Deposito']
 
+export const POS_TABUNGAN = [['rutin', 'Rutin'], ['darurat', 'Dana darurat'], ['kesehatan', 'Kesehatan']]
+export const posDari = (x) => x.pos || 'rutin'
+export const adalahBulan = (x) => /^\d{4}-\d{2}$/.test(x.month)
+
 const initial = {
   accounts: [
     { id: 'a1', name: 'BCA Tahapan', balance: 12500000 },
@@ -153,22 +157,33 @@ function reducer(s, a) {
     }
     case 'deleteBudget':
       return { ...s, budgets: s.budgets.filter((b) => b.category !== a.category) }
-    case 'setSaving': { // satu bulan = satu setoran; jumlah <= 0 menghapus
-      const rest = s.savings.filter((x) => x.month !== a.month)
-      const lama = s.savings.find((x) => x.month === a.month)
+    case 'setSaving': { // satu pos + satu bulan = satu setoran; jumlah <= 0 menghapus
+      const pos = a.pos || 'rutin'
+      const cocok = (x) => x.month === a.month && posDari(x) === pos && x.amount > 0
+      const lama = s.savings.find(cocok)
+      const rest = s.savings.filter((x) => !cocok(x))
       const note = a.note !== undefined ? a.note : lama?.note || ''
-      return { ...s, savings: a.amount > 0 ? [...rest, { id: lama?.id || uid(), month: a.month, amount: a.amount, note }] : rest }
+      return { ...s, savings: a.amount > 0 ? [...rest, { id: lama?.id || uid(), month: a.month, amount: a.amount, note, pos }] : rest }
     }
     case 'fillSavings': { // isi banyak bulan sekaligus (hanya bulan yang masih kosong, kecuali timpa)
-      const ada = new Set(s.savings.map((x) => x.month))
+      const pos = a.pos || 'rutin'
+      const ada = new Set(s.savings.filter((x) => posDari(x) === pos && x.amount > 0).map((x) => x.month))
       const baru = []
       const [y0, m0] = a.from.split('-').map(Number), [y1, m1] = a.to.split('-').map(Number)
       for (let i = y0 * 12 + m0 - 1; i <= y1 * 12 + m1 - 1 && baru.length < 600; i++) {
         const key = `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`
-        if (!ada.has(key) || a.timpa) baru.push({ id: uid(), month: key, amount: a.amount, note: '' })
+        if (!ada.has(key) || a.timpa) baru.push({ id: uid(), month: key, amount: a.amount, note: '', pos })
       }
       const ganti = new Set(baru.map((x) => x.month))
-      return { ...s, savings: [...s.savings.filter((x) => !ganti.has(x.month)), ...baru] }
+      return { ...s, savings: [...s.savings.filter((x) => !(posDari(x) === pos && x.amount > 0 && ganti.has(x.month))), ...baru] }
+    }
+    case 'pakaiDana': // dana dipakai (mis. berobat): disimpan sebagai angka negatif
+      return { ...s, savings: [...s.savings, { id: uid(), month: a.month, amount: -Math.abs(a.amount), note: a.note || '', pos: a.pos }] }
+    case 'deleteSaving':
+      return { ...s, savings: s.savings.filter((x) => x.id !== a.id) }
+    case 'setTargetTabungan': { // target disimpan sebagai satu baris khusus per pos
+      const rest = s.savings.filter((x) => !(x.month === 'target' && posDari(x) === a.pos))
+      return { ...s, savings: a.amount > 0 ? [...rest, { id: uid(), month: 'target', amount: a.amount, note: '', pos: a.pos }] : rest }
     }
     default:
       return s

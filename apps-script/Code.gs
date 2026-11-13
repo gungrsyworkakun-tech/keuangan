@@ -10,7 +10,7 @@ const TABEL = {
   Investasi: ['id', 'name', 'type', 'invested', 'value', 'sumber', 'kode', 'qty'],
   Goal:      ['id', 'name', 'target', 'saved', 'deadline'],
   Anggaran:  ['category', 'limit'],
-  Tabungan:  ['id', 'month', 'amount', 'note'],
+  Tabungan:  ['id', 'month', 'amount', 'note', 'pos'],
 };
 // nama di aplikasi -> nama tab di Sheets
 const PETA = { transactions: 'Transaksi', accounts: 'Rekening', investments: 'Investasi', goals: 'Goal', budgets: 'Anggaran', savings: 'Tabungan' };
