@@ -1,5 +1,5 @@
 // URL web app Apps Script. Kosong = mode lokal (data hanya di browser, untuk coba-coba).
-export const API_URL = import.meta.env.VITE_API_URL || ''
+export const API_URL = import.meta.env.VITE_API_URL || 'https://script.google.com/macros/s/AKfycbylxzWslOzR-wpo-ctwQdeJCkrCJWOwv6sDm0-PJh2ldHOtT8RUy65TBmOTw1Xy7_hK/exec'
 export const MODE_SHEETS = Boolean(API_URL)
 
 const KEY = 'duitku-token'
