@@ -177,3 +177,5 @@ input:disabled { background: var(--color-bg); color: var(--color-muted); }
 .chips { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; margin: 0 -2px; padding: 2px; } .chips::-webkit-scrollbar { display: none; } .chip { flex: 0 0 auto; white-space: nowrap; }
 .seg-full button { min-width: 0; }
 .dialog form, .dialog label { grid-template-columns: minmax(0, 1fr); } .dialog input, .dialog select { width: 100%; }
+.hargabar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 var(--space-4); padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); font-size: 13px; color: var(--color-muted, #5b665f); } .hargabar .btn { flex: none; }
+.stack { display: grid; gap: var(--space-3); } .stack .inline { flex-wrap: wrap; } .stack .inline > * { flex: 1 1 160px; min-width: 0; }

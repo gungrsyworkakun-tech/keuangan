@@ -7,13 +7,13 @@
 const TABEL = {
   Transaksi: ['id', 'date', 'desc', 'amount', 'type', 'category', 'accountId'],
   Rekening:  ['id', 'name', 'balance'],
-  Investasi: ['id', 'name', 'type', 'invested', 'value'],
+  Investasi: ['id', 'name', 'type', 'invested', 'value', 'sumber', 'kode', 'qty'],
   Goal:      ['id', 'name', 'target', 'saved', 'deadline'],
   Anggaran:  ['category', 'limit'],
 };
 // nama di aplikasi -> nama tab di Sheets
 const PETA = { transactions: 'Transaksi', accounts: 'Rekening', investments: 'Investasi', goals: 'Goal', budgets: 'Anggaran' };
-const KOLOM_ANGKA = { amount: 1, balance: 1, invested: 1, value: 1, target: 1, saved: 1, limit: 1 };
+const KOLOM_ANGKA = { amount: 1, balance: 1, invested: 1, value: 1, target: 1, saved: 1, limit: 1, qty: 1 };
 
 const SESI_DETIK = 6 * 60 * 60;   // login berlaku 6 jam
 const MAKS_GAGAL = 5;             // salah password 5x -> dikunci
@@ -64,6 +64,7 @@ function doPost(e) {
       case 'load':   return json_({ ok: true, state: bacaCepat_(), profil: profil_(user) });
       case 'saveProfile': return json_(simpanProfil_(user, req.nama));
       case 'save':   return json_(simpan_(req.state, user));
+      case 'harga':  return json_(ambilHarga_(req.daftar));
       case 'backup': return json_({ ok: true, nama: backupSekarang() });
       case 'logout': CacheService.getScriptCache().remove('sess_' + req.token); hapusSesiPanjang_(req.token); return json_({ ok: true });
       case 'changePassword': { const h = gantiPassword_(user, req.oldPassword, req.newPassword); if (h.ok) cabutSesiLain_(req.token); return json_(h); }
@@ -219,6 +220,7 @@ function simpan_(state, user) {
           return KOLOM_ANGKA[k] ? (Number(v) || 0) : String(v === undefined || v === null ? '' : v).slice(0, 200);
         });
       });
+      sh.getRange(1, 1, 1, kolom.length).setValues([kolom]).setFontWeight('bold');
       const lama = sh.getLastRow() - 1;
       if (lama > 0) sh.getRange(2, 1, lama, kolom.length).clearContent();
       if (nilai.length) {
@@ -234,6 +236,54 @@ function simpan_(state, user) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ---------- HARGA PASAR (emas, kripto, saham) ---------- */
+// daftar: [{sumber:'emas'|'kripto'|'saham', kode:'...'}]  ->  { 'emas:': {p: harga per unit (Rp), t: waktu}, ... }
+const CACHE_HARGA_DETIK = 15 * 60;
+function ambilJson_(url) {
+  const r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (Duitku)' } });
+  if (r.getResponseCode() !== 200) throw new Error('HTTP ' + r.getResponseCode());
+  return JSON.parse(r.getContentText());
+}
+function kursUsdIdr_() {
+  return Number(ambilJson_('https://open.er-api.com/v6/latest/USD').rates.IDR);
+}
+function hargaSatu_(sumber, kode) {
+  if (sumber === 'emas') {   // harga emas dunia (spot) -> Rupiah per gram
+    const usdPerOns = Number(ambilJson_('https://api.gold-api.com/price/XAU').price);
+    return Math.round(usdPerOns / 31.1034768 * kursUsdIdr_());
+  }
+  if (sumber === 'kripto') { // kode = id CoinGecko, mis. bitcoin
+    const j = ambilJson_('https://api.coingecko.com/api/v3/simple/price?ids=' + encodeURIComponent(kode.toLowerCase()) + '&vs_currencies=idr');
+    return Number(j[kode.toLowerCase()].idr);
+  }
+  if (sumber === 'saham') {  // kode = kode saham BEI, mis. BBCA
+    const j = ambilJson_('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(kode.toUpperCase()) + '.JK?range=1d&interval=1d');
+    return Number(j.chart.result[0].meta.regularMarketPrice);
+  }
+  throw new Error('Sumber tidak dikenal');
+}
+function ambilHarga_(daftar) {
+  if (!Array.isArray(daftar)) return { ok: false, error: 'Permintaan tidak valid' };
+  const cache = CacheService.getScriptCache(), hasil = {}, sudah = {};
+  daftar.slice(0, 20).forEach(function (d) {
+    const sumber = String(d && d.sumber || ''), kode = String(d && d.kode || '').trim();
+    if (['emas', 'kripto', 'saham'].indexOf(sumber) < 0) return;
+    if (sumber !== 'emas' && !/^[A-Za-z0-9.\-]{1,30}$/.test(kode)) { hasil[sumber + ':' + kode] = { err: 'Kode tidak valid' }; return; }
+    const kunci = sumber + ':' + (sumber === 'emas' ? '' : kode);
+    if (sudah[kunci]) return; sudah[kunci] = 1;
+    const ck = 'hrg_' + kunci, ada = cache.get(ck);
+    if (ada) { hasil[kunci] = JSON.parse(ada); return; }
+    try {
+      const p = hargaSatu_(sumber, kode);
+      if (!(p > 0)) throw new Error('Harga kosong');
+      const o = { p: p, t: new Date().toISOString() };
+      cache.put(ck, JSON.stringify(o), CACHE_HARGA_DETIK);
+      hasil[kunci] = o;
+    } catch (err) { hasil[kunci] = { err: 'Harga belum bisa diambil' }; }
+  });
+  return { ok: true, harga: hasil };
 }
 
 /* ---------- PROFIL & PEMBACAAN CEPAT ---------- */
