@@ -14,4 +14,11 @@ const csp = {
     ),
 }
 
-export default defineConfig({ base: './', plugins: [react(), csp] })
+export default defineConfig({
+  base: './',
+  plugins: [react(), csp],
+  build: {
+    // React dipisah ke berkas sendiri: jarang berubah, jadi browser memakai salinan lama (hemat unduhan)
+    rollupOptions: { output: { manualChunks: { react: ['react', 'react-dom'] } } },
+  },
+})

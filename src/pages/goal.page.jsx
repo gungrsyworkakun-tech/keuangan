@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Panel, Progress, Empty } from './ui'
+import { Panel, Empty } from './ui'
+import { Ring } from '../components/charts'
 import { rupiah, tanggal } from '../lib/format'
 
 export default function Goal({ state, dispatch }) {
@@ -11,19 +12,27 @@ export default function Goal({ state, dispatch }) {
     dispatch({ type: 'addGoal', payload: { name: f.name.trim(), target: Number(f.target), deadline: f.deadline } })
     setF({ name: '', target: '', deadline: '' })
   }
+  const totalT = state.goals.reduce((a, g) => a + g.target, 0), totalS = state.goals.reduce((a, g) => a + g.saved, 0)
   return (
     <>
+      <section className="hero">
+        <small>Total tabungan goal</small>
+        <div className="hero-amt">{rupiah(totalS)}</div>
+        <div className="hero-sub"><div><small>Total target</small><b>{rupiah(totalT)}</b></div><div><small>Jumlah goal</small><b>{state.goals.length}</b></div></div>
+      </section>
       <div className="cards">
         {state.goals.length === 0 && <Empty>Belum ada goal.</Empty>}
         {state.goals.map((g) => {
-          const pct = Math.min(100, Math.round((g.saved / g.target) * 100))
+          const sisa = Math.max(0, g.target - g.saved)
           return (
-            <Panel key={g.id} title={g.name}>
-              <Progress value={g.saved} max={g.target} />
-              <p className="goalnum"><b>{rupiah(g.saved)}</b> dari {rupiah(g.target)} · {pct}%</p>
-              {g.deadline && <small>Target: {tanggal(g.deadline)}</small>}
+            <Panel key={g.id}>
+              <div className="goalhead">
+                <Ring value={g.saved} max={g.target} />
+                <div><strong>{g.name}</strong><small>{g.deadline ? `Target ${tanggal(g.deadline)}` : 'Tanpa tenggat'}</small></div>
+              </div>
+              <p className="goalnum"><b>{rupiah(g.saved)}</b> dari {rupiah(g.target)}<small>{sisa ? `Kurang ${rupiah(sisa)}` : 'Target tercapai 🎉'}</small></p>
               <form className="inline" onSubmit={(e) => { e.preventDefault(); const n = Number(fund[g.id]); if (n > 0) { dispatch({ type: 'fundGoal', id: g.id, amount: n }); setFund({ ...fund, [g.id]: '' }) } }}>
-                <input type="number" placeholder="Tambah tabungan" value={fund[g.id] || ''} onChange={(e) => setFund({ ...fund, [g.id]: e.target.value })} aria-label={'Tambah dana ' + g.name} />
+                <input type="number" inputMode="numeric" placeholder="Tambah tabungan" value={fund[g.id] || ''} onChange={(e) => setFund({ ...fund, [g.id]: e.target.value })} aria-label={'Tambah dana ' + g.name} />
                 <button className="btn">Setor</button>
               </form>
             </Panel>
@@ -33,7 +42,7 @@ export default function Goal({ state, dispatch }) {
       <Panel title="Buat goal baru">
         <form className="inline" onSubmit={add}>
           <input placeholder="Nama goal" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label="Nama goal" />
-          <input type="number" placeholder="Target (Rp)" value={f.target} onChange={(e) => setF({ ...f, target: e.target.value })} aria-label="Target" />
+          <input type="number" inputMode="numeric" placeholder="Target (Rp)" value={f.target} onChange={(e) => setF({ ...f, target: e.target.value })} aria-label="Target" />
           <input type="date" value={f.deadline} onChange={(e) => setF({ ...f, deadline: e.target.value })} aria-label="Tenggat" />
           <button className="btn primary">Buat</button>
         </form>

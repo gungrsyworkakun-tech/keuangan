@@ -46,3 +46,11 @@ Tanpa `VITE_API_URL` aplikasi jalan dalam **mode lokal** (data hanya di browser,
 - Kalau mengubah `Code.gs`, buat **Deployment baru / kelola versi** agar perubahan berlaku (URL tetap sama kalau pilih "Edit deployment → Versi baru").
 - Ganti password: jalankan di Apps Script `simpanUser_('username','passwordBaru')` lalu hapus baris itu.
 - Jangan share Sheets ke orang lain kalau tidak ingin datanya terlihat.
+
+
+## Pembaruan: profil, grafik, mobile
+- Menu **Profil**: ubah nama tampilan dan ganti password (tersimpan di Apps Script).
+- Grafik: arus kas, donat kategori, tren selisih, komposisi harta, alokasi investasi, cincin progres goal.
+- Ponsel: navigasi bawah + tombol tambah, form naik dari bawah.
+- Cepat & stabil: data lama tampil dulu lalu dicocokkan ke server, simpan satu per satu, peringatan jika tab ditutup sebelum tersimpan.
+- Setelah mengubah `Code.gs`: **Terapkan → Kelola deployment → ikon pensil → Versi: Versi baru → Terapkan** (URL tetap).

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Panel, Empty } from './ui'
+import { BarChart, Donut } from '../components/charts'
 import { rupiah } from '../lib/format'
 import { JENIS_INVESTASI } from '../lib/store'
 
@@ -13,12 +14,27 @@ export default function Investasi({ state, dispatch }) {
     dispatch({ type: 'addInvestment', payload: { name: f.name.trim(), type: f.type, invested: Number(f.invested), value: Number(f.invested) } })
     setF({ ...f, name: '', invested: '' })
   }
+  const perJenis = {}
+  state.investments.forEach((i) => (perJenis[i.type] = (perJenis[i.type] || 0) + i.value))
+  const alok = Object.entries(perJenis).map(([label, value]) => ({ label, value })).filter((x) => x.value > 0)
+  const batang = state.investments.map((i) => ({ label: i.name.length > 9 ? i.name.slice(0, 8) + '…' : i.name, modal: i.invested, nilai: i.value }))
   return (
     <>
-      <div className="grid4">
-        <div className="metric"><small>Modal</small><strong>{rupiah(tot.inv)}</strong></div>
-        <div className="metric"><small>Nilai sekarang</small><strong>{rupiah(tot.val)}</strong></div>
-        <div className="metric"><small>Untung / rugi</small><strong className={gain >= 0 ? 'in' : 'out'}>{gain >= 0 ? '+' : '−'}{rupiah(Math.abs(gain))}{tot.inv ? ` (${((gain / tot.inv) * 100).toFixed(1)}%)` : ''}</strong></div>
+      <section className="hero">
+        <small>Nilai investasi sekarang</small>
+        <div className="hero-amt">{rupiah(tot.val)}</div>
+        <div className="hero-sub">
+          <div><small>Modal</small><b>{rupiah(tot.inv)}</b></div>
+          <div><small>Untung / rugi</small><b className={gain >= 0 ? 'pos' : 'neg'}>{gain >= 0 ? '+' : '−'}{rupiah(Math.abs(gain))}{tot.inv ? ` (${((gain / tot.inv) * 100).toFixed(1)}%)` : ''}</b></div>
+        </div>
+      </section>
+      <div className="grid-main">
+        <Panel title="Modal vs nilai sekarang" sub="Per aset">
+          {batang.length === 0 ? <Empty>Belum ada investasi.</Empty> : <BarChart data={batang} series={[{ key: 'modal', label: 'Modal', color: 'var(--data-2)' }, { key: 'nilai', label: 'Nilai sekarang', color: 'var(--data-1)' }]} />}
+        </Panel>
+        <Panel title="Alokasi aset" sub="Berdasarkan nilai sekarang">
+          {alok.length === 0 ? <Empty>Belum ada investasi.</Empty> : <Donut items={alok} />}
+        </Panel>
       </div>
       <Panel title="Portofolio">
         {state.investments.length === 0 ? <Empty>Belum ada investasi.</Empty> : state.investments.map((i) => {
@@ -27,7 +43,7 @@ export default function Investasi({ state, dispatch }) {
             <div key={i.id} className="trow">
               <div><strong>{i.name}</strong><small>{i.type} · modal {rupiah(i.invested)}</small></div>
               <div className="right">
-                <label className="mini">Nilai<input type="number" defaultValue={i.value} onBlur={(e) => Number(e.target.value) >= 0 && dispatch({ type: 'updateInvestmentValue', id: i.id, value: Number(e.target.value) })} /></label>
+                <label className="mini">Nilai<input type="number" inputMode="numeric" defaultValue={i.value} onBlur={(e) => Number(e.target.value) >= 0 && Number(e.target.value) !== i.value && dispatch({ type: 'updateInvestmentValue', id: i.id, value: Number(e.target.value) })} /></label>
                 <small className={g >= 0 ? 'in' : 'out'}>{g >= 0 ? '+' : '−'}{rupiah(Math.abs(g))}</small>
               </div>
             </div>
@@ -38,7 +54,7 @@ export default function Investasi({ state, dispatch }) {
         <form className="inline" onSubmit={add}>
           <input placeholder="Nama (mis. Reksa Dana X)" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label="Nama investasi" />
           <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} aria-label="Jenis">{JENIS_INVESTASI.map((j) => <option key={j}>{j}</option>)}</select>
-          <input type="number" placeholder="Modal (Rp)" value={f.invested} onChange={(e) => setF({ ...f, invested: e.target.value })} aria-label="Modal" />
+          <input type="number" inputMode="numeric" placeholder="Modal (Rp)" value={f.invested} onChange={(e) => setF({ ...f, invested: e.target.value })} aria-label="Modal" />
           <button className="btn primary">Tambah</button>
         </form>
         <small className="hint">Ubah kolom “Nilai” untuk memperbarui nilai terkini investasimu.</small>
