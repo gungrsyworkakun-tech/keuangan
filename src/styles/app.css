@@ -211,3 +211,13 @@ html { overflow-x: clip; } img, svg, video, canvas { max-width: 100%; }
   .budget .mini { flex: 1 1 100%; }
   .budget .mini input { width: 100%; }
 }
+
+/* Bilah persen muat */
+.progres { display: grid; gap: 6px; margin: 4px 0 12px; }
+.progres-bar { height: 8px; border-radius: 99px; background: var(--color-border); overflow: hidden; }
+.progres-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #1a7a5a, #12634a); transition: width .35s ease; }
+.progres-row { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--color-muted); }
+.progres-row span { flex: 1; min-width: 0; }
+.progres-row strong { color: var(--color-text, inherit); font-variant-numeric: tabular-nums; }
+.progres-row small { font-variant-numeric: tabular-nums; }
+.progres-lambat { margin: 0; font-size: 12px; color: #a0620d; }

@@ -22,7 +22,29 @@ export const bacaProfil = () => { try { return JSON.parse(localStorage.getItem(P
 export const tulisProfil = (p) => { try { localStorage.setItem(PROFIL, JSON.stringify(p)) } catch {} }
 export const hapusCache = () => { try { localStorage.removeItem(CACHE); localStorage.removeItem(PROFIL) } catch {} }
 
+// Laporan tahap permintaan (untuk bilah persen di layar masuk dan saat memuat data)
+const pendengar = new Set()
+export const dengarProgres = (fn) => { pendengar.add(fn); return () => pendengar.delete(fn) }
+const lapor = (aksi, persen, label) => pendengar.forEach((f) => f({ aksi, persen, label }))
+
+async function bacaBadan(res, aksi) {
+  const total = Number(res.headers.get('content-length')) || 0
+  if (!res.body || !res.body.getReader) return res.json()
+  const rd = res.body.getReader(), potong = []
+  let got = 0
+  for (;;) {
+    const { done, value } = await rd.read()
+    if (done) break
+    potong.push(value); got += value.length
+    lapor(aksi, total ? 60 + Math.min(35, Math.round((got / total) * 35)) : 70, 'Menerima data…')
+  }
+  const all = new Uint8Array(got); let o = 0
+  for (const c of potong) { all.set(c, o); o += c.length }
+  return JSON.parse(new TextDecoder().decode(all))
+}
+
 export async function call(action, payload = {}, opts = {}) {
+  lapor(action, 15, 'Menghubungi server…')
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), 30000)
   try {
@@ -37,7 +59,10 @@ export async function call(action, payload = {}, opts = {}) {
       signal: ctl.signal,
     })
     if (!res.ok) throw new Error('Server tidak bisa dihubungi')
-    return await res.json()
+    lapor(action, 60, 'Menerima data…')
+    const hasil = await bacaBadan(res, action)
+    lapor(action, 100, 'Selesai')
+    return hasil
   } finally {
     clearTimeout(timer)
   }

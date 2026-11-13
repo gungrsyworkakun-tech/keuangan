@@ -7,4 +7,5 @@ import '@fontsource/plus-jakarta-sans/latin-700.css'
 import './styles/tokens.css'
 import './styles/app.css'
 import App from './App.jsx'
+if (window.__progres) window.__progres.selesai()
 createRoot(document.getElementById('root')).render(<App />)

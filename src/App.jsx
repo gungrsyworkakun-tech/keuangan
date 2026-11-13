@@ -4,7 +4,7 @@ import { MODE_SHEETS, call, getToken, setToken, hapusCache } from './lib/api'
 import FinanceShell, { MENU } from './layouts/finance-shell.layout.jsx'
 import TransactionDialog from './pages/transaction-dialog.jsx'
 import Login from './pages/login.page.jsx'
-import { Skeleton } from './pages/ui.jsx'
+import { Skeleton, Progres, useProgres } from './pages/ui.jsx'
 
 // Tiap halaman dimuat saat dibuka, jadi buka pertama kali lebih cepat
 const PAGES = {
@@ -53,6 +53,7 @@ function Main({ onKeluar }) {
   const [tipeAwal, setTipeAwal] = useState('out')
   const [info, setInfo] = useState('')
   const [toast, setToast] = useState('')
+  const prog = useProgres(['load'], meta.status === 'loading')
 
   const bukaCatat = (tipe = 'out') => { setTipeAwal(tipe); setDialogOpen(true) }
   const tampilToast = (t) => { setToast(t); setTimeout(() => setToast(''), 3500) }
@@ -96,7 +97,7 @@ function Main({ onKeluar }) {
       saveStatus={terkunci ? (meta.pesan ? 'error' : 'saving') : meta.saveStatus} statusText={statusText} info={info}
       onRetry={terkunci ? meta.muat : meta.simpan}
       onLogout={MODE_SHEETS ? logout : null} onBackup={MODE_SHEETS ? backup : null}>
-      {meta.status === 'loading' ? <Skeleton />
+      {meta.status === 'loading' ? <><Progres {...prog} /><Skeleton /></>
         : meta.status === 'error' ? <div className="panel"><p role="alert" className="out">{meta.pesan}</p><button className="btn primary" onClick={() => location.reload()}>Coba lagi</button></div>
         : (
           <Suspense fallback={<Skeleton />}>
