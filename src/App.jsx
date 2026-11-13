@@ -13,6 +13,7 @@ const PAGES = {
   bank: lazy(() => import('./pages/sisa-bank.page.jsx')),
   investasi: lazy(() => import('./pages/investasi.page.jsx')),
   goal: lazy(() => import('./pages/goal.page.jsx')),
+  tabungan: lazy(() => import('./pages/tabungan.page.jsx')),
   anggaran: lazy(() => import('./pages/anggaran.page.jsx')),
   profil: lazy(() => import('./pages/profil.page.jsx')),
 }

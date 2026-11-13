@@ -8,6 +8,7 @@ export const MENU = [
   { id: 'bank', label: 'Sisa di Bank', short: 'Bank', icon: 'bank' },
   { id: 'investasi', label: 'Investasi', short: 'Investasi', icon: 'trend' },
   { id: 'goal', label: 'Goal', short: 'Goal', icon: 'target' },
+  { id: 'tabungan', label: 'Tabungan', short: 'Tabungan', icon: 'piggy' },
   { id: 'anggaran', label: 'Anggaran', short: 'Anggaran', icon: 'pie' },
   { id: 'profil', label: 'Profil', short: 'Profil', icon: 'user' },
 ]
@@ -70,7 +71,7 @@ export default function FinanceShell({ route, title, nama, username, onAdd, lock
         {BAWAH.map((m) => (
           <a key={m.id} href={'#/' + m.id} className={route === m.id ? 'is-active' : ''} aria-current={route === m.id ? 'page' : undefined}><I n={m.icon} size={22} /><span>{m.short}</span></a>
         ))}
-        <button className={['anggaran', 'profil'].includes(route) ? 'is-active' : ''} onClick={() => setOpen(true)}><I n="more" size={22} /><span>Lainnya</span></button>
+        <button className={['tabungan', 'anggaran', 'profil'].includes(route) ? 'is-active' : ''} onClick={() => setOpen(true)}><I n="more" size={22} /><span>Lainnya</span></button>
       </nav>
     </div>
   )
