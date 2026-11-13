@@ -54,13 +54,17 @@ export default function Investasi({ state, dispatch }) {
     setF({ ...f, name: '', invested: '', kode: '', qty: '' })
   }
   const pilih = state.investments.find((i) => i.id === d.id) || state.investments[0]
+  const hargaHariIni = pilih?.sumber ? harga[kunci(pilih)]?.p || 0 : 0
+  const unitOtomatis = hargaHariIni > 0 && Number(d.amount) > 0 ? Math.round((Number(d.amount) / hargaHariIni) * 1e6) / 1e6 : 0
   const kirimDana = (e) => {
     e.preventDefault()
     if (!pilih) return
-    const amount = Number(d.amount), qty = Number(d.qty) || 0, n = nilai(pilih)
+    const amount = Number(d.amount), n = nilai(pilih)
     const gagal = (t) => setDPesan({ t, ok: false })
     if (!(amount > 0)) return gagal('Jumlah (Rp) harus lebih dari 0')
-    if (d.mode === 'tambah' && pilih.sumber && !(qty > 0)) return gagal('Isi juga jumlah ' + SATUAN[pilih.sumber] + ' yang dibeli')
+    // jumlah unit: diisi manual kalau ada, kalau tidak dihitung otomatis dari harga pasar hari ini
+    const qty = Number(d.qty) > 0 ? Number(d.qty) : unitOtomatis
+    if (pilih.sumber && !(qty > 0)) return gagal('Harga hari ini belum bisa diambil. Isi jumlah ' + SATUAN[pilih.sumber] + ' secara manual, atau tekan “Perbarui harga” dulu')
     if (d.mode === 'tarik' && amount > n) return gagal('Melebihi nilai investasi saat ini (' + rupiah(n) + ')')
     if (d.mode === 'tarik' && qty > (pilih.qty || 0) && pilih.sumber) return gagal('Melebihi jumlah yang dimiliki (' + pilih.qty + ' ' + SATUAN[pilih.sumber] + ')')
     const acc = state.accounts.find((a) => a.id === d.acc)
@@ -141,7 +145,7 @@ export default function Investasi({ state, dispatch }) {
             <div className="inline">
               <select value={pilih?.id || ''} onChange={(e) => setD({ ...d, id: e.target.value })} aria-label="Pilih investasi">{state.investments.map((i) => <option key={i.id} value={i.id}>{i.name} · {rupiah(nilai(i))}</option>)}</select>
               <input type="number" inputMode="numeric" placeholder={d.mode === 'tambah' ? 'Dana yang ditambahkan (Rp)' : 'Dana yang ditarik (Rp)'} value={d.amount} onChange={(e) => setD({ ...d, amount: e.target.value })} aria-label="Jumlah rupiah" />
-              {pilih?.sumber && <input type="number" inputMode="decimal" step="any" placeholder={(d.mode === 'tambah' ? 'Jumlah dibeli' : 'Jumlah dijual') + ' (' + SATUAN[pilih.sumber] + ')'} value={d.qty} onChange={(e) => setD({ ...d, qty: e.target.value })} aria-label="Jumlah unit" />}
+              {pilih?.sumber && <input type="number" inputMode="decimal" step="any" placeholder={'Otomatis (' + SATUAN[pilih.sumber] + '), boleh diisi sendiri'} value={d.qty} onChange={(e) => setD({ ...d, qty: e.target.value })} aria-label="Jumlah unit" />}
               <select value={d.acc} onChange={(e) => setD({ ...d, acc: e.target.value })} aria-label="Rekening terkait">
                 <option value="">Jangan catat ke rekening</option>
                 {state.accounts.map((a) => <option key={a.id} value={a.id}>{d.mode === 'tambah' ? 'Ambil dari ' : 'Masuk ke '}{a.name}</option>)}
@@ -149,6 +153,13 @@ export default function Investasi({ state, dispatch }) {
               <button className="btn primary">{d.mode === 'tambah' ? 'Tambah' : 'Tarik'}</button>
             </div>
           </form>
+          {pilih?.sumber && (
+            <p className="hint" role="status">
+              {hargaHariIni > 0
+                ? `Harga hari ini ${rupiah(hargaHariIni)} per ${SATUAN[pilih.sumber]}${unitOtomatis > 0 && !(Number(d.qty) > 0) ? ` → ${d.mode === 'tambah' ? 'dapat' : 'terjual'} ≈ ${unitOtomatis} ${SATUAN[pilih.sumber]}, terisi otomatis` : ''}`
+                : 'Harga hari ini belum tersedia, isi jumlah secara manual atau tekan “Perbarui harga”.'}
+            </p>
+          )}
           {dPesan.t && <p className={dPesan.ok ? 'hint' : 'empty'} role="status">{dPesan.t}</p>}
           <small className="hint">{d.mode === 'tambah' ? 'Modal dan nilai investasi bertambah sebesar jumlah ini.' : 'Modal berkurang sebanding dengan porsi yang ditarik, jadi untung/rugi tetap benar. Menarik semua nilai akan menghapus investasi dari portofolio.'} Kalau memilih rekening, saldo rekening ikut berubah dan tercatat sebagai Transfer (tidak dihitung pemasukan/pengeluaran).</small>
         </Panel>
