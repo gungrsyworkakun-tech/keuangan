@@ -11,8 +11,8 @@ export const Panel = ({ title, sub, action, children, className = '' }) => (
   </section>
 )
 export const Amount = ({ value, type }) => (
-  <span className={type === 'in' ? 'amt in' : type === 'out' ? 'amt out' : 'amt'}>
-    {type === 'in' ? '+' : type === 'out' ? '−' : ''}{rupiah(value)}
+  <span className={type === 'in' ? 'amt in' : type === 'out' ? 'amt out' : type === 'tin' || type === 'tout' ? 'amt tf' : 'amt'}>
+    {type === 'in' || type === 'tin' ? '+' : type === 'out' || type === 'tout' ? '−' : ''}{rupiah(value)}
   </span>
 )
 export const Progress = ({ value, max, warn }) => {

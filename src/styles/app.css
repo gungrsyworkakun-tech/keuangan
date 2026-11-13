@@ -194,3 +194,12 @@ html { overflow-x: clip; } img, svg, video, canvas { max-width: 100%; }
   .hero-sub { flex-wrap: wrap; gap: var(--space-3) var(--space-5); }
 }
 .chip { max-width: 72vw; overflow: hidden; text-overflow: ellipsis; }
+
+.amt.tf { color: var(--color-muted); font-weight: 600; }
+.tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--color-primary-soft); color: var(--color-primary); font-size: 11px; font-weight: 700; vertical-align: middle; }
+.quick { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 var(--space-3); } .quick .btn { flex: 1 1 140px; }
+.warn-txt { color: var(--color-danger); font-size: 13px; }
+
+.seg-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .seg-3 button { padding: 10px 4px; font-size: 13px; }
+.panel-soft { display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: 14px; background: var(--color-primary-soft); } .panel-soft p { margin: 0; }
+@media (max-width: 900px) { .quick { flex-wrap: nowrap; gap: 6px; } .quick .btn { flex: 1 1 0; min-width: 0; padding-left: 6px; padding-right: 6px; font-size: 13px; } }

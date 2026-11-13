@@ -4,13 +4,20 @@ import { MODE_SHEETS, call, bacaCache, tulisCache, bacaProfil, tulisProfil } fro
 
 export const KATEGORI_KELUAR = ['Makan & minum', 'Transport', 'Tagihan', 'Belanja', 'Hiburan', 'Kesehatan', 'Lainnya']
 export const KATEGORI_MASUK = ['Gaji', 'Bonus', 'Usaha', 'Lainnya']
+export const JENIS_REKENING = [['bank', 'Bank'], ['tunai', 'Uang tunai'], ['ewallet', 'E-wallet']]
+// jenis rekening: dari data; kalau belum ada, ditebak dari nama
+export const jenisRek = (a) => a.jenis || (/tunai|cash|dompet/i.test(a.name) ? 'tunai' : /gopay|ovo|dana|shopee|linkaja|e-?wallet/i.test(a.name) ? 'ewallet' : 'bank')
+export const adalahTransfer = (t) => t.category === 'Transfer'
+// tipe untuk tampilan: perpindahan saldo tidak dihitung pemasukan/pengeluaran
+export const tipeTampil = (t) => (adalahTransfer(t) ? (t.type === 'in' ? 'tin' : 'tout') : t.type)
 export const JENIS_INVESTASI = ['Reksa dana', 'Saham', 'Emas', 'Obligasi', 'Kripto', 'Deposito']
 
 const initial = {
   accounts: [
     { id: 'a1', name: 'BCA Tahapan', balance: 12500000 },
     { id: 'a2', name: 'Mandiri', balance: 4200000 },
-    { id: 'a3', name: 'GoPay', balance: 350000 },
+    { id: 'a3', name: 'GoPay', balance: 350000, jenis: 'ewallet' },
+    { id: 'a4', name: 'Uang Tunai', balance: 500000, jenis: 'tunai' },
   ],
   transactions: [
     { id: 't1', date: '2025-10-25', desc: 'Gaji Oktober', amount: 9000000, type: 'in', category: 'Gaji', accountId: 'a1' },
@@ -74,11 +81,28 @@ function reducer(s, a) {
     case 'deleteTransaction': {
       const lama = s.transactions.find((t) => t.id === a.id)
       if (!lama) return s
-      const efek = lama.type === 'in' ? lama.amount : -lama.amount
+      // transfer = dua catatan berpasangan (id tf-xxx-a / tf-xxx-b), dihapus bersama
+      const ids = a.id.startsWith('tf-') ? [a.id.slice(0, -2) + '-a', a.id.slice(0, -2) + '-b'] : [a.id]
+      const hapus = s.transactions.filter((t) => ids.includes(t.id))
       return {
         ...s,
-        transactions: s.transactions.filter((t) => t.id !== a.id),
-        accounts: s.accounts.map((x) => (x.id === lama.accountId ? { ...x, balance: x.balance - efek } : x)),
+        transactions: s.transactions.filter((t) => !ids.includes(t.id)),
+        accounts: s.accounts.map((x) => hapus.reduce((acc, t) => (t.accountId === x.id ? { ...acc, balance: acc.balance - (t.type === 'in' ? t.amount : -t.amount) } : acc), x)),
+      }
+    }
+    case 'transfer': {
+      const { from, to, amount, date, label } = a.payload
+      const f = s.accounts.find((x) => x.id === from), t = s.accounts.find((x) => x.id === to)
+      if (!f || !t || from === to || !(amount > 0)) return s
+      const k = uid()
+      const kaki = [
+        { id: `tf-${k}-a`, date, desc: `${label} ke ${t.name}`, amount, type: 'out', category: 'Transfer', accountId: from },
+        { id: `tf-${k}-b`, date, desc: `${label} dari ${f.name}`, amount, type: 'in', category: 'Transfer', accountId: to },
+      ]
+      return {
+        ...s,
+        transactions: [...kaki, ...s.transactions],
+        accounts: s.accounts.map((x) => (x.id === from ? { ...x, balance: x.balance - amount } : x.id === to ? { ...x, balance: x.balance + amount } : x)),
       }
     }
     case 'updateAccount':

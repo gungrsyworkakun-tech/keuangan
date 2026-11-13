@@ -1,10 +1,10 @@
 import { Panel, Progress } from './ui'
 import { BarChart } from '../components/charts'
 import { rupiah, bulanKey, bulanLabel } from '../lib/format'
-import { KATEGORI_KELUAR } from '../lib/store'
+import { KATEGORI_KELUAR, adalahTransfer } from '../lib/store'
 
 export default function Anggaran({ state, dispatch }) {
-  const months = [...new Set(state.transactions.map((t) => bulanKey(t.date)))].sort()
+  const months = [...new Set(state.transactions.filter((t) => !adalahTransfer(t)).map((t) => bulanKey(t.date)))].sort()
   const key = months[months.length - 1] || new Date().toISOString().slice(0, 7)
   const spent = (c) => state.transactions.filter((t) => t.type === 'out' && t.category === c && bulanKey(t.date) === key).reduce((a, t) => a + t.amount, 0)
   const lim = (c) => state.budgets.find((b) => b.category === c)?.limit || ''

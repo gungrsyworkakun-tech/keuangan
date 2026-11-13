@@ -6,7 +6,7 @@
 
 const TABEL = {
   Transaksi: ['id', 'date', 'desc', 'amount', 'type', 'category', 'accountId'],
-  Rekening:  ['id', 'name', 'balance'],
+  Rekening:  ['id', 'name', 'balance', 'jenis'],
   Investasi: ['id', 'name', 'type', 'invested', 'value', 'sumber', 'kode', 'qty'],
   Goal:      ['id', 'name', 'target', 'saved', 'deadline'],
   Anggaran:  ['category', 'limit'],
@@ -281,42 +281,42 @@ function hargaSatu_(sumber, kode) {
 }
 /* Harga emas toko Indonesia dari galeri24.co.id/harga-emas (jual & buyback per gram, dari baris 1 gram) */
 const MEREK_G24 = ['GALERI 24', 'ANTAM', 'UBS'];
+// ubah HTML jadi satu aliran teks (tidak bergantung pada pemecahan baris/tag)
 function teksHalaman_(html) {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<\/(tr|td|th|div|p|h[1-6]|li|a|span|button|table|section)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-    .split('\n').map(function (x) { return x.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+    .replace(/\s+/g, ' ').trim();
 }
-function angkaRp_(t) { const m = /^Rp\s?([\d.]+)$/i.exec(t); return m ? Number(m[1].replace(/\./g, '')) : null; }
-function adalahJudul_(t) { // judul bagian: nama merek, atau "Harga <nama>" (bukan judul kolom)
-  const u = t.toUpperCase();
-  if (MEREK_G24.indexOf(u) >= 0) return true;
-  return u.indexOf('HARGA ') === 0 && u !== 'HARGA JUAL' && u !== 'HARGA BUYBACK';
-}
-function bacaMerek_(baris, merek) {
-  // cari judul bagian ("Harga ANTAM" atau "ANTAM") yang diikuti tabel harga
-  for (let i = 0; i < baris.length; i++) {
-    const u = baris[i].toUpperCase();
-    if (u !== merek && u !== 'HARGA ' + merek) continue;
-    for (let j = i + 1; j < Math.min(i + 80, baris.length); j++) {
-      if (adalahJudul_(baris[j])) break; // masuk bagian lain (merek lain / seri lain)
-      const mb = /^(\d+(?:[.,]\d+)?)\s*(?:gr|gram|g)?$/i.exec(baris[j]);
-      if (!mb || Number(mb[1].replace(',', '.')) !== 1) continue;
-      const jual = angkaRp_(baris[j + 1] || ''), buyback = angkaRp_(baris[j + 2] || '');
-      if (jual > 0 || buyback > 0) return { jual: jual || 0, buyback: buyback || 0 };
-    }
+function rapat_(t) { return String(t).toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+// Pecah halaman jadi bagian per judul: judul = teks tepat sebelum "Berat Harga Jual Harga Buyback"
+function bagianHarga_(teks) {
+  const re = /Harga\s+(.+?)\s+Berat\s+Harga\s+Jual\s+Harga\s+Buyback/gi, awal = [];
+  let m;
+  while ((m = re.exec(teks)) !== null) {
+    const nama = m[1].split(/Harga\s+/i).pop();           // ambil nama setelah kata "Harga" terakhir
+    awal.push({ nama: rapat_(nama), mulai: re.lastIndex, kepala: m.index });
   }
-  return null;
+  const hasil = {};
+  awal.forEach(function (x, i) {
+    if (hasil[x.nama] === undefined) hasil[x.nama] = teks.slice(x.mulai, i + 1 < awal.length ? awal[i + 1].kepala : teks.length);
+  });
+  return hasil;
+}
+function hargaBaris1Gram_(isi) {
+  const m = /(?:^|\s)1(?:[.,]0+)?(?:\s*(?:gr|gram|g))?\s+Rp\s*([\d.]+)\s+Rp\s*([\d.]+)/i.exec(isi);
+  if (!m) return null;
+  return { jual: Number(m[1].replace(/\./g, '')) || 0, buyback: Number(m[2].replace(/\./g, '')) || 0 };
 }
 function hargaGaleri24_() {
   const cache = CacheService.getScriptCache(), ada = cache.get('g24_all');
   if (ada) return JSON.parse(ada);
   const r = UrlFetchApp.fetch('https://galeri24.co.id/harga-emas', { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (Duitku)' } });
   if (r.getResponseCode() !== 200) throw new Error('HTTP ' + r.getResponseCode());
-  const baris = teksHalaman_(r.getContentText()), hasil = {};
+  const bagian = bagianHarga_(teksHalaman_(r.getContentText())), hasil = {};
   MEREK_G24.forEach(function (m) {
-    const h = bacaMerek_(baris, m);
+    const isi = bagian[rapat_(m)];
+    const h = isi ? hargaBaris1Gram_(isi) : null;
     if (h) { if (h.jual > 0) hasil[m + '|jual'] = h.jual; if (h.buyback > 0) hasil[m + '|buyback'] = h.buyback; }
   });
   if (!Object.keys(hasil).length) throw new Error('Tabel harga tidak terbaca');
@@ -325,12 +325,15 @@ function hargaGaleri24_() {
 }
 // Jalankan manual di editor Apps Script untuk mengecek hasil baca harga (lihat "Log eksekusi")
 function ujiHargaEmas() {
-  try { Logger.log(JSON.stringify(hargaGaleri24_())); }
-  catch (e) {
-    Logger.log('GAGAL: ' + e.message);
-    const r = UrlFetchApp.fetch('https://galeri24.co.id/harga-emas', { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (Duitku)' } });
-    Logger.log(teksHalaman_(r.getContentText()).slice(0, 120).join(' | '));
-  }
+  CacheService.getScriptCache().remove('g24_all');
+  try { Logger.log('HASIL: ' + JSON.stringify(hargaGaleri24_())); }
+  catch (e) { Logger.log('GAGAL: ' + e.message); }
+  // info bantu: bagian apa saja yang terbaca dari halaman
+  const r = UrlFetchApp.fetch('https://galeri24.co.id/harga-emas', { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (Duitku)' } });
+  const teks = teksHalaman_(r.getContentText()), bagian = bagianHarga_(teks);
+  Logger.log('HTTP ' + r.getResponseCode() + ', panjang teks ' + teks.length + ', bagian: ' + Object.keys(bagian).join(', '));
+  MEREK_G24.forEach(function (m) { Logger.log(m + ' -> ' + String(bagian[rapat_(m)] || '(tidak ada)').slice(0, 160)); });
+  if (!Object.keys(bagian).length) { const i = teks.search(/Berat/i); Logger.log('CONTOH: ' + teks.slice(Math.max(0, i - 120), i + 200)); }
 }
 
 function ambilHarga_(daftar) {
