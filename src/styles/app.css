@@ -203,3 +203,11 @@ html { overflow-x: clip; } img, svg, video, canvas { max-width: 100%; }
 .seg-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .seg-3 button { padding: 10px 4px; font-size: 13px; }
 .panel-soft { display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: 14px; background: var(--color-primary-soft); } .panel-soft p { margin: 0; }
 @media (max-width: 900px) { .quick { flex-wrap: nowrap; gap: 6px; } .quick .btn { flex: 1 1 0; min-width: 0; padding-left: 6px; padding-right: 6px; font-size: 13px; } }
+
+/* Anggaran: di layar sempit kolom batas turun ke bawah supaya tulisan tidak bertumpuk */
+@media (max-width: 520px) {
+  .budget .trow { flex-wrap: wrap; align-items: stretch; }
+  .budget .trow > div:first-child { flex: 1 1 100%; }
+  .budget .mini { flex: 1 1 100%; }
+  .budget .mini input { width: 100%; }
+}
