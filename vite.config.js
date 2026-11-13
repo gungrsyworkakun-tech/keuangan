@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // Alamat perantara (VITE_API_URL) ikut diizinkan di aturan CSP, selain Apps Script
-const asalApi = (() => { try { return new URL(process.env.VITE_API_URL || '').origin } catch { return '' } })()
+const asalApi = (() => { try { return new URL(process.env.VITE_API_URL || 'https://cara-kinerja-ngr.my.id/duitku/api.php').origin } catch { return '' } })()
 
 // Perlindungan tambahan hanya untuk hasil build (di mode dev tidak dipasang agar HMR jalan)
 const csp = {

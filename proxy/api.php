@@ -36,7 +36,15 @@ function kirim(array $o, int $kode = 200): void {
     echo $b;
     // balas ke pengguna sekarang juga; pekerjaan sinkron lanjut di belakang
     if (function_exists('fastcgi_finish_request')) { fastcgi_finish_request(); }
+    elseif (function_exists('litespeed_finish_request')) { litespeed_finish_request(); }
     else { while (ob_get_level() > 0) { @ob_end_flush(); } flush(); }
+}
+// Apakah server ini bisa membalas pengguna dulu lalu lanjut bekerja di belakang?
+function bisaLatar(array $cfg): bool {
+    $mode = (string)($cfg['latar'] ?? 'auto');
+    if ($mode === 'langsung') return true;
+    if ($mode === 'http') return false;
+    return function_exists('fastcgi_finish_request') || function_exists('litespeed_finish_request');
 }
 
 function cors(array $cfg): void {
@@ -209,6 +217,35 @@ function segarkanDariSheets(array $cfg, string $token): void {
     }, false);
 }
 
+/* ---------- kerja latar lewat panggilan ke diri sendiri (untuk server yang menahan balasan) ---------- */
+function rahasia(array $cfg): string {
+    $f = berkas($cfg, 'rahasia.txt');
+    if (!is_file($f)) { file_put_contents($f, bin2hex(random_bytes(16))); @chmod($f, 0600); }
+    return trim((string)file_get_contents($f));
+}
+function urlSendiri(array $cfg): string {
+    if (!empty($cfg['url_sendiri'])) return (string)$cfg['url_sendiri'];
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    return ($https ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ($_SERVER['SCRIPT_NAME'] ?? '/api.php');
+}
+// kirim perintah ke api.php sendiri lalu tidak menunggu hasilnya
+function pingLatar(array $cfg, string $jenis, string $token): void {
+    $ch = curl_init(urlSendiri($cfg));
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode(['action' => 'latar', 'rahasia' => rahasia($cfg), 'jenis' => $jenis, 'token' => $token]),
+        CURLOPT_HTTPHEADER => ['Content-Type: text/plain;charset=utf-8'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_NOSIGNAL => true,
+        CURLOPT_CONNECTTIMEOUT_MS => 1500,
+        CURLOPT_TIMEOUT_MS => 400,      // sengaja tidak menunggu; server tetap lanjut bekerja
+    ]);
+    curl_exec($ch); curl_close($ch);
+}
+function jalankanLatar(array $cfg, string $jenis, string $token): void {
+    if ($jenis === 'kirim') kirimKeSheets($cfg, $token); else segarkanDariSheets($cfg, $token);
+}
+
 /* ---------- permintaan masuk ---------- */
 siapkanDir($cfg);
 $mentah = file_get_contents('php://input', false, null, 0, MAKS_BODY + 1);
@@ -219,13 +256,19 @@ $aksi = (string)$req['action'];
 $token = $req['token'] ?? '';
 $tugas = null; // pekerjaan latar setelah pengguna dibalas
 
+if ($aksi === 'latar') {
+    // hanya boleh dipanggil oleh api.php sendiri (butuh rahasia di folder data)
+    if (!hash_equals(rahasia($cfg), (string)($req['rahasia'] ?? '')) || !tokenValid($token)) { http_response_code(403); exit; }
+    jalankanLatar($cfg, ($req['jenis'] ?? '') === 'kirim' ? 'kirim' : 'segarkan', $token);
+    http_response_code(204); exit;
+}
 if ($aksi === 'login') {
     if (!batasLogin($cfg)) { kirim(['ok' => false, 'error' => 'Terlalu banyak percobaan. Coba lagi 15 menit lagi.'], 429); exit; }
     $r = gs($cfg, $req);
     if (!empty($r['ok']) && tokenValid($r['token'] ?? null)) {
         simpanSesi($cfg, $r['token'], (string)($r['user'] ?? ''), ($req['ingat'] ?? false) === true ? SESI_PANJANG : SESI_PENDEK);
         $t = $r['token'];
-        if (!bacaSalinan($cfg)) $tugas = function () use ($cfg, $t) { segarkanDariSheets($cfg, $t); }; // siapkan salinan awal
+        if (!bacaSalinan($cfg)) $tugas = ['segarkan', $t]; // siapkan salinan awal
     }
     kirim($r);
 } else {
@@ -250,8 +293,8 @@ if ($aksi === 'login') {
                     kirim($r);
                 } else {
                     kirim(['ok' => true, 'state' => $d['state'], 'profil' => $d['profil'] ?? ['username' => $user, 'nama' => $user]]);
-                    if (!empty($d['pending'])) $tugas = function () use ($cfg, $token) { kirimKeSheets($cfg, $token); };
-                    elseif (time() - (int)($d['waktu'] ?? 0) > $cfg['refresh_detik']) $tugas = function () use ($cfg, $token) { segarkanDariSheets($cfg, $token); };
+                    if (!empty($d['pending'])) $tugas = ['kirim', $token];
+                    elseif (time() - (int)($d['waktu'] ?? 0) > $cfg['refresh_detik']) $tugas = ['segarkan', $token];
                 }
                 break;
 
@@ -259,7 +302,7 @@ if ($aksi === 'login') {
                 if (!stateValid($req['state'] ?? null)) { kirim(['ok' => false, 'error' => 'Data tidak valid']); break; }
                 tulisSalinan($cfg, $req['state'], null, true);
                 kirim(['ok' => true, 'waktu' => gmdate('c'), 'oleh' => $user]);
-                $tugas = function () use ($cfg, $token) { kirimKeSheets($cfg, $token); };
+                $tugas = ['kirim', $token];
                 break;
 
             case 'saveProfile':
@@ -306,4 +349,9 @@ if ($aksi === 'login') {
     }
 }
 
-if ($tugas) { try { $tugas(); } catch (Throwable $e) { /* sinkron gagal: dicoba lagi di permintaan berikutnya */ } }
+if ($tugas) {
+    try {
+        if (bisaLatar($cfg)) jalankanLatar($cfg, $tugas[0], $tugas[1]);
+        else pingLatar($cfg, $tugas[0], $tugas[1]);
+    } catch (Throwable $e) { /* sinkron gagal: dicoba lagi di permintaan berikutnya */ }
+}
