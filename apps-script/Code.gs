@@ -279,12 +279,18 @@ function teksHalaman_(html) {
     .split('\n').map(function (x) { return x.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
 }
 function angkaRp_(t) { const m = /^Rp\s?([\d.]+)$/i.exec(t); return m ? Number(m[1].replace(/\./g, '')) : null; }
+function adalahJudul_(t) { // judul bagian: nama merek, atau "Harga <nama>" (bukan judul kolom)
+  const u = t.toUpperCase();
+  if (MEREK_G24.indexOf(u) >= 0) return true;
+  return u.indexOf('HARGA ') === 0 && u !== 'HARGA JUAL' && u !== 'HARGA BUYBACK';
+}
 function bacaMerek_(baris, merek) {
-  // cari judul bagian (baris yang persis nama merek, mis. "ANTAM") yang diikuti tabel harga
+  // cari judul bagian ("Harga ANTAM" atau "ANTAM") yang diikuti tabel harga
   for (let i = 0; i < baris.length; i++) {
-    if (baris[i].toUpperCase() !== merek) continue;
+    const u = baris[i].toUpperCase();
+    if (u !== merek && u !== 'HARGA ' + merek) continue;
     for (let j = i + 1; j < Math.min(i + 80, baris.length); j++) {
-      if (MEREK_G24.indexOf(baris[j].toUpperCase()) >= 0) break; // masuk bagian merek lain
+      if (adalahJudul_(baris[j])) break; // masuk bagian lain (merek lain / seri lain)
       const mb = /^(\d+(?:[.,]\d+)?)\s*(?:gr|gram|g)?$/i.exec(baris[j]);
       if (!mb || Number(mb[1].replace(',', '.')) !== 1) continue;
       const jual = angkaRp_(baris[j + 1] || ''), buyback = angkaRp_(baris[j + 2] || '');
@@ -335,7 +341,7 @@ function ambilHarga_(daftar) {
       const o = { p: p, t: new Date().toISOString() };
       cache.put(ck, JSON.stringify(o), CACHE_HARGA_DETIK);
       hasil[kunci] = o;
-    } catch (err) { hasil[kunci] = { err: 'Harga belum bisa diambil' }; }
+    } catch (err) { hasil[kunci] = { err: 'Harga belum bisa diambil (' + String(err.message || err).slice(0, 60) + ')' }; }
   });
   return { ok: true, harga: hasil };
 }
