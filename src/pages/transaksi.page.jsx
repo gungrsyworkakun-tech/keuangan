@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Panel, Amount, Empty } from './ui'
 import { tanggal, rupiah } from '../lib/format'
+import { KATEGORI_KELUAR, KATEGORI_MASUK } from '../lib/store'
+import EditDialog from './edit-dialog'
 
 const HALAMAN = 40
 
-export default function Transaksi({ state, onAdd }) {
+export default function Transaksi({ state, dispatch, onAdd }) {
+  const [ed, setEd] = useState(null)
   const [filter, setFilter] = useState('all')
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(null)
@@ -25,9 +28,20 @@ export default function Transaksi({ state, onAdd }) {
           <button className="trow btnrow" aria-expanded={open === t.id} onClick={() => setOpen(open === t.id ? null : t.id)}>
             <div><strong>{t.desc}</strong><small>{tanggal(t.date)} · {t.category}</small></div><Amount value={t.amount} type={t.type} />
           </button>
-          {open === t.id && <div className="detail">Rekening: {acc(t.accountId)} · Kategori: {t.category}</div>}
+          {open === t.id && <div className="detail">Rekening: {acc(t.accountId)} · Kategori: {t.category} <button className="linkbtn" onClick={() => setEd(t)}>Ubah / hapus</button></div>}
         </div>
       ))}
+      <EditDialog item={ed} title="Ubah transaksi" onClose={() => setEd(null)}
+        fields={[
+          { k: 'type', label: 'Jenis', type: 'select', options: [['out', 'Pengeluaran'], ['in', 'Pemasukan']] },
+          { k: 'amount', label: 'Nominal (Rp)', type: 'number', min: 1 },
+          { k: 'desc', label: 'Keterangan', type: 'text' },
+          { k: 'category', label: 'Kategori', type: 'select', options: [...new Set([...KATEGORI_KELUAR, ...KATEGORI_MASUK, ed?.category].filter(Boolean))].map((c) => [c, c]) },
+          { k: 'accountId', label: 'Rekening', type: 'select', options: state.accounts.map((a) => [a.id, a.name]) },
+          { k: 'date', label: 'Tanggal', type: 'date' },
+        ]}
+        onSave={(patch) => dispatch({ type: 'updateTransaction', id: ed.id, patch })}
+        onDelete={() => dispatch({ type: 'deleteTransaction', id: ed.id })} />
       {list.length > banyak && <button className="btn more" onClick={() => setBanyak(banyak + HALAMAN)}>Tampilkan lebih banyak ({list.length - banyak})</button>}
     </Panel>
   )

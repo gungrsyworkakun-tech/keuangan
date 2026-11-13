@@ -1,0 +1,21 @@
+{
+  "name": "Duitku – Keuangan Pribadi",
+  "short_name": "Duitku",
+  "description": "Catat pemasukan, pengeluaran, investasi, dan goal dengan cepat.",
+  "lang": "id",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f6f4",
+  "theme_color": "#12634a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Catat pengeluaran", "short_name": "Pengeluaran", "url": "./#/catat-keluar", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Catat pemasukan", "short_name": "Pemasukan", "url": "./#/catat-masuk", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
+}

@@ -55,6 +55,44 @@ function reducer(s, a) {
         accounts: s.accounts.map((x) => (x.id === t.accountId ? { ...x, balance: x.balance + delta } : x)),
       }
     }
+    case 'updateTransaction': {
+      const lama = s.transactions.find((t) => t.id === a.id)
+      if (!lama) return s
+      const baru = { ...lama, ...a.patch }
+      const efek = (t) => (t.type === 'in' ? t.amount : -t.amount)
+      return {
+        ...s,
+        transactions: s.transactions.map((t) => (t.id === a.id ? baru : t)),
+        accounts: s.accounts.map((x) => {
+          let b = x.balance
+          if (x.id === lama.accountId) b -= efek(lama)
+          if (x.id === baru.accountId) b += efek(baru)
+          return b === x.balance ? x : { ...x, balance: b }
+        }),
+      }
+    }
+    case 'deleteTransaction': {
+      const lama = s.transactions.find((t) => t.id === a.id)
+      if (!lama) return s
+      const efek = lama.type === 'in' ? lama.amount : -lama.amount
+      return {
+        ...s,
+        transactions: s.transactions.filter((t) => t.id !== a.id),
+        accounts: s.accounts.map((x) => (x.id === lama.accountId ? { ...x, balance: x.balance - efek } : x)),
+      }
+    }
+    case 'updateAccount':
+      return { ...s, accounts: s.accounts.map((x) => (x.id === a.id ? { ...x, ...a.patch } : x)) }
+    case 'deleteAccount':
+      return { ...s, accounts: s.accounts.filter((x) => x.id !== a.id) }
+    case 'updateInvestment':
+      return { ...s, investments: s.investments.map((x) => (x.id === a.id ? { ...x, ...a.patch } : x)) }
+    case 'deleteInvestment':
+      return { ...s, investments: s.investments.filter((x) => x.id !== a.id) }
+    case 'updateGoal':
+      return { ...s, goals: s.goals.map((x) => (x.id === a.id ? { ...x, ...a.patch } : x)) }
+    case 'deleteGoal':
+      return { ...s, goals: s.goals.filter((x) => x.id !== a.id) }
     case 'addAccount':
       return { ...s, accounts: [...s.accounts, { id: uid(), ...a.payload }] }
     case 'addInvestment':

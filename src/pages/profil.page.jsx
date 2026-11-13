@@ -59,6 +59,17 @@ export default function Profil({ akun }) {
           ) : <p className="empty">Login dan password aktif setelah aplikasi terhubung ke Google Sheets.</p>}
         </Panel>
       </div>
+      <Panel title="Pasang di HP" sub="Buka Duitku dari layar utama, tanpa mengetik alamat">
+        <details className="pasang" open>
+          <summary>Android (Chrome)</summary>
+          <ol><li>Buka alamat Duitku di Chrome lalu login.</li><li>Ketuk menu <b>⋮</b> → <b>Instal aplikasi</b> (atau <b>Tambahkan ke layar utama</b>).</li><li>Tekan lama ikon <b>Duitku</b> di layar utama untuk pintasan <b>Catat pengeluaran</b> dan <b>Catat pemasukan</b>.</li></ol>
+        </details>
+        <details className="pasang">
+          <summary>iPhone (Safari)</summary>
+          <ol><li>Buka alamat Duitku di Safari.</li><li>Ketuk tombol <b>Bagikan</b> → <b>Tambah ke Layar Utama</b>.</li></ol>
+        </details>
+        <small className="hint">Di HP pribadi, centang “Ingat saya” saat login supaya tidak perlu masuk ulang setiap membuka.</small>
+      </Panel>
       {sheets && (
         <Panel title="Data & akun">
           <div className="actions-row">
