@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Panel, Amount, Empty } from './ui'
+import { adalahTransfer, tipeTampil } from '../lib/store'
 import { BarChart, Donut, LineChart } from '../components/charts'
 import { rupiah, tanggal, bulanKey, bulanLabel, bulanPendek } from '../lib/format'
 
 export default function Ringkasan({ state, onAdd, profil }) {
   const { transactions, accounts, investments } = state
-  const months = useMemo(() => [...new Set(transactions.map((t) => bulanKey(t.date)))].sort().reverse(), [transactions])
+  const months = useMemo(() => [...new Set(transactions.filter((t) => !adalahTransfer(t)).map((t) => bulanKey(t.date)))].sort().reverse(), [transactions])
   const [period, setPeriod] = useState(months[0])
   const aktif = months.includes(period) ? period : months[0]
 
-  const sum = (key, type) => transactions.filter((t) => bulanKey(t.date) === key && t.type === type).reduce((a, t) => a + t.amount, 0)
+  const sum = (key, type) => transactions.filter((t) => bulanKey(t.date) === key && t.type === type && !adalahTransfer(t)).reduce((a, t) => a + t.amount, 0)
   const masuk = aktif ? sum(aktif, 'in') : 0, keluar = aktif ? sum(aktif, 'out') : 0
   const saldo = accounts.reduce((a, x) => a + x.balance, 0)
   const invest = investments.reduce((a, i) => a + i.value, 0)
@@ -20,7 +21,7 @@ export default function Ringkasan({ state, onAdd, profil }) {
   })
 
   const cat = {}
-  transactions.filter((t) => bulanKey(t.date) === aktif && t.type === 'out').forEach((t) => (cat[t.category] = (cat[t.category] || 0) + t.amount))
+  transactions.filter((t) => bulanKey(t.date) === aktif && t.type === 'out' && !adalahTransfer(t)).forEach((t) => (cat[t.category] = (cat[t.category] || 0) + t.amount))
   const catList = Object.entries(cat).sort((a, b) => b[1] - a[1])
   const top = catList.slice(0, 4).map(([label, value]) => ({ label, value }))
   const rest = catList.slice(4).reduce((a, [, v]) => a + v, 0)
@@ -78,7 +79,7 @@ export default function Ringkasan({ state, onAdd, profil }) {
 
       <Panel title="Transaksi terbaru" action={<a href="#/transaksi">Lihat semua</a>}>
         {recent.length === 0 ? <Empty>Belum ada transaksi.</Empty> : recent.map((t) => (
-          <div key={t.id} className="trow"><div><strong>{t.desc}</strong><small>{tanggal(t.date)} · {t.category}</small></div><Amount value={t.amount} type={t.type} /></div>
+          <div key={t.id} className="trow"><div><strong>{t.desc}</strong><small>{tanggal(t.date)} · {t.category}</small></div><Amount value={t.amount} type={tipeTampil(t)} /></div>
         ))}
       </Panel>
     </>

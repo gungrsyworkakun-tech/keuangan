@@ -6,7 +6,7 @@
 
 const TABEL = {
   Transaksi: ['id', 'date', 'desc', 'amount', 'type', 'category', 'accountId'],
-  Rekening:  ['id', 'name', 'balance'],
+  Rekening:  ['id', 'name', 'balance', 'jenis'],
   Investasi: ['id', 'name', 'type', 'invested', 'value', 'sumber', 'kode', 'qty'],
   Goal:      ['id', 'name', 'target', 'saved', 'deadline'],
   Anggaran:  ['category', 'limit'],
