@@ -9,3 +9,8 @@ import './styles/app.css'
 import App from './App.jsx'
 if (window.__progres) window.__progres.selesai()
 createRoot(document.getElementById('root')).render(<App />)
+
+// Simpan berkas aplikasi di perangkat supaya terbuka cepat (hanya di versi jadi, bukan saat pengembangan)
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}) })
+}
