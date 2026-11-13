@@ -20,6 +20,9 @@ const MAKS_GAGAL = 5;             // salah password 5x -> dikunci
 const KUNCI_DETIK = 15 * 60;      // dikunci 15 menit
 const MAKS_BACKUP = 30;           // simpan 30 backup terakhir
 const MAKS_BARIS = 5000;          // batas pengaman ukuran data
+const HASH_PUTARAN = 500;         // pengacakan password (dulu 3000, terlalu lambat di Apps Script)
+const HASH_PUTARAN_LAMA = 3000;   // akun lama tanpa catatan putaran
+const CACHE_DATA_DETIK = 900;     // salinan cepat data: 15 menit (diperbarui otomatis tiap simpan)
 
 /* ---------- SETUP (jalankan sekali) ---------- */
 function setupAwal() {
@@ -90,9 +93,10 @@ function json_(obj) {
 }
 
 /* ---------- LOGIN & KEAMANAN ---------- */
-function hash_(garam, password) {
+function hash_(garam, password, putaran) {
   let h = garam + '|' + password;
-  for (let i = 0; i < 3000; i++) {
+  const n = putaran || HASH_PUTARAN_LAMA;
+  for (let i = 0; i < n; i++) {
     h = bytesKeHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, h + garam, Utilities.Charset.UTF_8));
   }
   return h;
@@ -110,7 +114,7 @@ function daftarUser_() { return JSON.parse(PropertiesService.getScriptProperties
 function simpanUser_(username, password) {
   const users = daftarUser_();
   const garam = Utilities.getUuid();
-  users[String(username).toLowerCase()] = { garam: garam, hash: hash_(garam, password) };
+  users[String(username).toLowerCase()] = { garam: garam, hash: hash_(garam, password, HASH_PUTARAN), r: HASH_PUTARAN };
   PropertiesService.getScriptProperties().setProperty('USERS', JSON.stringify(users));
 }
 
@@ -123,7 +127,8 @@ function login_(username, password, ingat) {
     return { ok: false, error: 'Terlalu banyak percobaan. Coba lagi 15 menit lagi.' };
   }
   const rec = daftarUser_()[u];
-  const hashCoba = hash_(rec ? rec.garam : 'garam-palsu', String(password || '').slice(0, 200));
+  const pw = String(password || '').slice(0, 200);
+  const hashCoba = hash_(rec ? rec.garam : 'garam-palsu', pw, rec ? (rec.r || HASH_PUTARAN_LAMA) : HASH_PUTARAN);
   if (!rec || !sama_(hashCoba, rec.hash)) {
     cache.put(kunci, String(Number(cache.get(kunci) || 0) + 1), KUNCI_DETIK);
     cache.put(kunciGlobal, String(Number(cache.get(kunciGlobal) || 0) + 1), KUNCI_DETIK);
@@ -131,6 +136,8 @@ function login_(username, password, ingat) {
     return { ok: false, error: 'Username atau password salah' };
   }
   cache.remove(kunci);
+  // akun lama (pengacakan 3000x yang lambat): setelah login benar, simpan ulang dengan putaran baru supaya login berikutnya cepat
+  if (!rec.r || rec.r > HASH_PUTARAN) { try { simpanUser_(u, pw); } catch (e) {} }
   const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
   cache.put('sess_' + token, u, SESI_DETIK);
   if (ingat) simpanSesiPanjang_(u, token);
@@ -179,7 +186,7 @@ function cabutSesiLain_(tokenSaatIni) {
 
 function gantiPassword_(user, lama, baru) {
   const rec = daftarUser_()[user];
-  if (!rec || !sama_(hash_(rec.garam, String(lama || '')), rec.hash)) return { ok: false, error: 'Password lama salah' };
+  if (!rec || !sama_(hash_(rec.garam, String(lama || ''), rec.r || HASH_PUTARAN_LAMA), rec.hash)) return { ok: false, error: 'Password lama salah' };
   if (String(baru || '').length < 8) return { ok: false, error: 'Password baru minimal 8 karakter' };
   simpanUser_(user, baru);
   return { ok: true };
@@ -210,6 +217,19 @@ function baca_() {
   return hasil;
 }
 
+// ubah satu tabel jadi bentuk yang sama persis dengan hasil baca_ (angka = angka, teks maks 200 huruf)
+function norm_(kunci, daftar) {
+  const kolom = TABEL[PETA[kunci]];
+  return daftar.map(function (o) {
+    const r = {};
+    kolom.forEach(function (k) {
+      const v = o[k];
+      r[k] = KOLOM_ANGKA[k] ? (Number(v) || 0) : String(v === undefined || v === null ? '' : v).slice(0, 200);
+    });
+    return r;
+  });
+}
+
 function simpan_(state, user) {
   if (!state || typeof state !== 'object') return { ok: false, error: 'Data tidak valid' };
   const lock = LockService.getScriptLock();
@@ -221,27 +241,27 @@ function simpan_(state, user) {
       if (!Array.isArray(daftar)) throw new Error('Data ' + kunci + ' tidak valid');
       if (daftar.length > MAKS_BARIS) throw new Error('Data terlalu banyak');
     });
+    const baru = {};
+    Object.keys(PETA).forEach(function (kunci) { baru[kunci] = norm_(kunci, state[kunci]); });
+    const lama = bacaCache_(); // bandingkan dengan salinan terakhir: tab yang tidak berubah tidak ditulis ulang (lebih cepat)
     Object.keys(PETA).forEach(function (kunci) {
+      if (lama && JSON.stringify(lama[kunci]) === JSON.stringify(baru[kunci])) return;
       const nama = PETA[kunci], kolom = TABEL[nama];
       const sh = ss.getSheetByName(nama);
-      const nilai = state[kunci].map(function (o) {
-        return kolom.map(function (k) {
-          const v = o[k];
-          return KOLOM_ANGKA[k] ? (Number(v) || 0) : String(v === undefined || v === null ? '' : v).slice(0, 200);
-        });
-      });
+      const nilai = baru[kunci].map(function (o) { return kolom.map(function (k) { return o[k]; }); });
       sh.getRange(1, 1, 1, kolom.length).setValues([kolom]).setFontWeight('bold');
-      const lama = sh.getLastRow() - 1;
-      if (lama > 0) sh.getRange(2, 1, lama, kolom.length).clearContent();
+      const n0 = sh.getLastRow() - 1;
+      if (n0 > 0) sh.getRange(2, 1, n0, kolom.length).clearContent();
       if (nilai.length) {
         const rentang = sh.getRange(2, 1, nilai.length, kolom.length);
         rentang.setNumberFormat('@');
         rentang.setValues(nilai);
       }
     });
-    CacheService.getScriptCache().remove('data_v1'); // data berubah, hapus salinan cepat
+    tulisCepat_(baru); // salinan cepat langsung diperbarui, jadi "buka" berikutnya tidak perlu membaca Sheets
     return { ok: true, waktu: new Date().toISOString(), oleh: user };
   } catch (err) {
+    hapusCache_();
     return { ok: false, error: String(err.message || 'Gagal menyimpan') };
   } finally {
     lock.releaseLock();
@@ -376,13 +396,39 @@ function simpanProfil_(user, nama) {
   return { ok: true, profil: profil_(user) };
 }
 
-// Baca dari salinan cepat (10 menit); kalau kosong baru baca Sheets
+// Salinan cepat data di CacheService (dipotong-potong karena batas 100KB per kunci)
+const POTONG_CACHE = 30000;
+function tulisCepat_(data) {
+  try {
+    const s = JSON.stringify(data), n = Math.max(1, Math.ceil(s.length / POTONG_CACHE)), isi = {};
+    if (n > 20) { hapusCache_(); return; } // terlalu besar untuk cache, baca dari Sheets saja
+    for (let i = 0; i < n; i++) isi['data_v2_' + i] = s.slice(i * POTONG_CACHE, (i + 1) * POTONG_CACHE);
+    isi['data_v2_n'] = String(n);
+    CacheService.getScriptCache().putAll(isi, CACHE_DATA_DETIK);
+  } catch (e) { hapusCache_(); }
+}
+function bacaCache_() {
+  const cache = CacheService.getScriptCache(), n = Number(cache.get('data_v2_n') || 0);
+  if (!n) return null;
+  const kunci = [];
+  for (let i = 0; i < n; i++) kunci.push('data_v2_' + i);
+  const got = cache.getAll(kunci);
+  let s = '';
+  for (let i = 0; i < n; i++) { if (got[kunci[i]] === undefined) return null; s += got[kunci[i]]; }
+  try { return JSON.parse(s); } catch (e) { return null; }
+}
+function hapusCache_() {
+  const cache = CacheService.getScriptCache(), kunci = ['data_v2_n'];
+  for (let i = 0; i < 20; i++) kunci.push('data_v2_' + i);
+  cache.removeAll(kunci);
+}
+
+// Baca dari salinan cepat; kalau kosong baru baca Sheets (lalu simpan salinannya)
 function bacaCepat_() {
-  const cache = CacheService.getScriptCache();
-  const ada = cache.get('data_v1');
-  if (ada) { try { return JSON.parse(ada); } catch (e) {} }
+  const ada = bacaCache_();
+  if (ada) return ada;
   const data = baca_();
-  try { cache.put('data_v1', JSON.stringify(data), 600); } catch (e) {} // data besar (>100KB) dilewati
+  tulisCepat_(data);
   return data;
 }
 
