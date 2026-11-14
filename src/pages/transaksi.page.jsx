@@ -42,11 +42,10 @@ export default function Transaksi({ state, dispatch, onAdd }) {
           { k: 'amount', label: 'Nominal (Rp)', type: 'number', min: 1 },
           { k: 'desc', label: 'Keterangan', type: 'text' },
           { k: 'category', label: 'Kategori', type: 'select', options: [...new Set([...daftarKategori(state, 'out', [ed?.category]), ...daftarKategori(state, 'in', [ed?.category])])].map((c) => [c, c]) },
-          { k: 'kategoriBaru', label: 'Atau tulis kategori baru (opsional)', type: 'text', opsional: true },
           { k: 'accountId', label: 'Rekening', type: 'select', options: state.accounts.map((a) => [a.id, a.name]) },
           { k: 'date', label: 'Tanggal', type: 'date' },
         ]}
-        onSave={({ kategoriBaru, ...patch }) => dispatch({ type: 'updateTransaction', id: ed.id, patch: kategoriBaru ? { ...patch, category: kategoriBaru } : patch })}
+        onSave={(patch) => dispatch({ type: 'updateTransaction', id: ed.id, patch })}
         onDelete={() => dispatch({ type: 'deleteTransaction', id: ed.id })} />
       {list.length > banyak && <button className="btn more" onClick={() => setBanyak(banyak + HALAMAN)}>Tampilkan lebih banyak ({list.length - banyak})</button>}
     </Panel>

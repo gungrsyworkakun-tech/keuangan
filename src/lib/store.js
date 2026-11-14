@@ -5,16 +5,21 @@ import { MODE_SHEETS, call, bacaCache, tulisCache, bacaProfil, tulisProfil } fro
 export const KATEGORI_KELUAR = ['Makan & minum', 'Transport', 'Tagihan', 'Belanja', 'Hiburan', 'Kesehatan', 'Lainnya']
 export const KATEGORI_MASUK = ['Gaji', 'Bonus', 'Usaha', 'Lainnya']
 
-// Daftar kategori untuk form: bawaan + kategori anggaran + semua kategori yang pernah dipakai (per jenis)
+// Kategori untuk form. Pengeluaran: diambil dari menu Anggaran (satu sumber), Lainnya selalu ada di akhir;
+// kalau Anggaran masih kosong dipakai daftar bawaan. Pemasukan: bawaan + yang pernah dipakai.
 export function daftarKategori(state, tipe, tambahan = []) {
   const hasil = []
   const lihat = new Set()
-  const tambah = (c) => { const k = String(c || '').trim(); if (k && k !== 'Transfer' && !lihat.has(k.toLowerCase())) { lihat.add(k.toLowerCase()); hasil.push(k) } }
-  ;(tipe === 'in' ? KATEGORI_MASUK : KATEGORI_KELUAR).forEach((c) => c !== 'Lainnya' && tambah(c))
-  if (tipe === 'out') (state.budgets || []).forEach((b) => tambah(b.category))
-  ;(state.transactions || []).filter((t) => t.type === tipe && !adalahTransfer(t)).forEach((t) => tambah(t.category))
+  const tambah = (c) => { const k = String(c || '').trim(); if (k && k !== 'Transfer' && k !== 'Lainnya' && !lihat.has(k.toLowerCase())) { lihat.add(k.toLowerCase()); hasil.push(k) } }
+  if (tipe === 'out') {
+    const dariAnggaran = (state.budgets || []).map((b) => b.category)
+    ;(dariAnggaran.length ? dariAnggaran : KATEGORI_KELUAR).forEach(tambah)
+  } else {
+    KATEGORI_MASUK.forEach(tambah)
+    ;(state.transactions || []).filter((t) => t.type === 'in' && !adalahTransfer(t)).forEach((t) => tambah(t.category))
+  }
   tambahan.forEach(tambah)
-  tambah('Lainnya')
+  hasil.push('Lainnya')
   return hasil
 }
 export const JENIS_REKENING = [['bank', 'Bank'], ['tunai', 'Uang tunai'], ['ewallet', 'E-wallet']]
