@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Panel, Amount, Empty } from './ui'
 import { tanggal, rupiah } from '../lib/format'
-import { KATEGORI_KELUAR, KATEGORI_MASUK, adalahTransfer, tipeTampil } from '../lib/store'
+import { daftarKategori, adalahTransfer, tipeTampil } from '../lib/store'
 import EditDialog from './edit-dialog'
 
 const HALAMAN = 40
@@ -41,11 +41,12 @@ export default function Transaksi({ state, dispatch, onAdd }) {
           { k: 'type', label: 'Jenis', type: 'select', options: [['out', 'Pengeluaran'], ['in', 'Pemasukan']] },
           { k: 'amount', label: 'Nominal (Rp)', type: 'number', min: 1 },
           { k: 'desc', label: 'Keterangan', type: 'text' },
-          { k: 'category', label: 'Kategori', type: 'select', options: [...new Set([...KATEGORI_KELUAR, ...KATEGORI_MASUK, ed?.category].filter(Boolean))].map((c) => [c, c]) },
+          { k: 'category', label: 'Kategori', type: 'select', options: [...new Set([...daftarKategori(state, 'out', [ed?.category]), ...daftarKategori(state, 'in', [ed?.category])])].map((c) => [c, c]) },
+          { k: 'kategoriBaru', label: 'Atau tulis kategori baru (opsional)', type: 'text', opsional: true },
           { k: 'accountId', label: 'Rekening', type: 'select', options: state.accounts.map((a) => [a.id, a.name]) },
           { k: 'date', label: 'Tanggal', type: 'date' },
         ]}
-        onSave={(patch) => dispatch({ type: 'updateTransaction', id: ed.id, patch })}
+        onSave={({ kategoriBaru, ...patch }) => dispatch({ type: 'updateTransaction', id: ed.id, patch: kategoriBaru ? { ...patch, category: kategoriBaru } : patch })}
         onDelete={() => dispatch({ type: 'deleteTransaction', id: ed.id })} />
       {list.length > banyak && <button className="btn more" onClick={() => setBanyak(banyak + HALAMAN)}>Tampilkan lebih banyak ({list.length - banyak})</button>}
     </Panel>

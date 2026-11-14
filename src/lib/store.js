@@ -4,6 +4,19 @@ import { MODE_SHEETS, call, bacaCache, tulisCache, bacaProfil, tulisProfil } fro
 
 export const KATEGORI_KELUAR = ['Makan & minum', 'Transport', 'Tagihan', 'Belanja', 'Hiburan', 'Kesehatan', 'Lainnya']
 export const KATEGORI_MASUK = ['Gaji', 'Bonus', 'Usaha', 'Lainnya']
+
+// Daftar kategori untuk form: bawaan + kategori anggaran + semua kategori yang pernah dipakai (per jenis)
+export function daftarKategori(state, tipe, tambahan = []) {
+  const hasil = []
+  const lihat = new Set()
+  const tambah = (c) => { const k = String(c || '').trim(); if (k && k !== 'Transfer' && !lihat.has(k.toLowerCase())) { lihat.add(k.toLowerCase()); hasil.push(k) } }
+  ;(tipe === 'in' ? KATEGORI_MASUK : KATEGORI_KELUAR).forEach((c) => c !== 'Lainnya' && tambah(c))
+  if (tipe === 'out') (state.budgets || []).forEach((b) => tambah(b.category))
+  ;(state.transactions || []).filter((t) => t.type === tipe && !adalahTransfer(t)).forEach((t) => tambah(t.category))
+  tambahan.forEach(tambah)
+  tambah('Lainnya')
+  return hasil
+}
 export const JENIS_REKENING = [['bank', 'Bank'], ['tunai', 'Uang tunai'], ['ewallet', 'E-wallet']]
 // jenis rekening: dari data; kalau belum ada, ditebak dari nama
 export const jenisRek = (a) => a.jenis || (/tunai|cash|dompet/i.test(a.name) ? 'tunai' : /gopay|ovo|dana|shopee|linkaja|e-?wallet/i.test(a.name) ? 'ewallet' : 'bank')
