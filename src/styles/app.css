@@ -224,3 +224,4 @@ html { overflow-x: clip; } img, svg, video, canvas { max-width: 100%; }
 .notetab { width: 100%; margin-top: 6px; min-height: 36px; padding: 6px 10px; font-size: 13px; }
 .hero-sub { flex-wrap: wrap; }
 .panel-head .chips { overflow: visible; flex-shrink: 0; margin: 0; padding: 0; }
+.chips.wrap { flex-wrap: wrap; overflow: visible; }
