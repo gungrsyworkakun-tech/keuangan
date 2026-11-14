@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { KATEGORI_KELUAR, KATEGORI_MASUK, daftarKategori } from '../lib/store'
+import { daftarKategori } from '../lib/store'
 import { hariIni, rupiah } from '../lib/format'
 
 const KUNCI_REK = 'duitku-rekening-terakhir'
@@ -11,7 +11,7 @@ export default function TransactionDialog({ open, onClose, state, dispatch, lock
     const id = ingatRek()
     return state.accounts.some((a) => a.id === id) ? id : state.accounts[0]?.id || ''
   }
-  const kosong = (tipe) => ({ type: tipe, desc: '', amount: '', date: hariIni(), category: (tipe === 'in' ? KATEGORI_MASUK : KATEGORI_KELUAR)[0], accountId: rekAwal() })
+  const kosong = (tipe) => ({ type: tipe, desc: '', amount: '', date: hariIni(), category: daftarKategori(state, tipe)[0], accountId: rekAwal() })
   const [f, setF] = useState(kosong(awalTipe))
   const [err, setErr] = useState({})
   const [baru, setBaru] = useState(false) // sedang mengetik kategori baru
@@ -80,8 +80,9 @@ export default function TransactionDialog({ open, onClose, state, dispatch, lock
         <label>Keterangan<input value={f.desc} onChange={(e) => set('desc', e.target.value)} placeholder="Mis. makan siang" />{err.desc && <em>{err.desc}</em>}</label>
         <div className="chips wrap" role="radiogroup" aria-label="Kategori">
           {cats.map((c) => <button type="button" key={c} role="radio" aria-checked={!baru && f.category === c} className={'chip' + (!baru && f.category === c ? ' on' : '')} onClick={() => { setBaru(false); set('category', c) }}>{c}</button>)}
-          <button type="button" role="radio" aria-checked={baru} className={'chip' + (baru ? ' on' : '')} onClick={() => { setBaru(true); set('category', '') }}>+ Kategori baru</button>
+          {f.type === 'in' && <button type="button" role="radio" aria-checked={baru} className={'chip' + (baru ? ' on' : '')} onClick={() => { setBaru(true); set('category', '') }}>+ Kategori baru</button>}
         </div>
+        {f.type === 'out' && <small className="hint">Kategori diambil dari menu Anggaran. <a href="#/anggaran" onClick={onClose}>Tambah / ubah kategori</a></small>}
         {baru && <label>Nama kategori baru<input value={f.category} maxLength={30} autoFocus placeholder={f.type === 'in' ? 'Mis. Freelance' : 'Mis. Pulsa & data'} onChange={(e) => set('category', e.target.value)} />{err.cat && <em>{err.cat}</em>}</label>}
         <div className="row2">
           <label>Rekening<select value={f.accountId} onChange={(e) => set('accountId', e.target.value)}>{state.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>{err.account && <em>{err.account}</em>}</label>
