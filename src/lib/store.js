@@ -199,6 +199,8 @@ function reducer(s, a) {
       return { ...s, savings: [...s.savings, { id: uid(), month: a.month, amount: -Math.abs(a.amount), note: a.note || '', pos: a.pos }] }
     case 'deleteSaving':
       return { ...s, savings: s.savings.filter((x) => x.id !== a.id) }
+    case 'addLokasi': // tempat dana disimpan (mis. "BCA ATM"); jumlah boleh kosong
+      return { ...s, savings: [...s.savings, { id: uid(), month: 'lokasi', amount: Math.max(0, Number(a.amount) || 0), note: String(a.name || '').trim().slice(0, 60), pos: a.pos }] }
     case 'setTargetTabungan': { // target disimpan sebagai satu baris khusus per pos
       const rest = s.savings.filter((x) => !(x.month === 'target' && posDari(x) === a.pos))
       return { ...s, savings: a.amount > 0 ? [...rest, { id: uid(), month: 'target', amount: a.amount, note: '', pos: a.pos }] : rest }

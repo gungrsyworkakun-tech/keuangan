@@ -21,12 +21,15 @@ export default function Tabungan({ state, dispatch }) {
   const [pesan, setPesan] = useState('')
   const [pakai, setPakai] = useState({ amount: '', note: '' })
   const [tgt, setTgt] = useState('')
+  const [lok, setLok] = useState({ name: '', amount: '' })
   const [err, setErr] = useState('')
   const namaPos = POS_TABUNGAN.find(([k]) => k === pos)[1]
 
   const milik = useMemo(() => semua.filter((x) => posDari(x) === pos), [semua, pos])
   const setoran = milik.filter((x) => adalahBulan(x) && x.amount > 0)
   const pemakaian = milik.filter((x) => adalahBulan(x) && x.amount < 0).sort((a, b) => b.month.localeCompare(a.month))
+  const lokasi = milik.filter((x) => x.month === 'lokasi')
+  const dialokasi = lokasi.reduce((a, x) => a + x.amount, 0)
   const target = milik.find((x) => x.month === 'target')?.amount || 0
   const peta = useMemo(() => Object.fromEntries(setoran.map((x) => [x.month, x])), [setoran])
   const disetor = setoran.reduce((a, x) => a + x.amount, 0)
@@ -67,6 +70,12 @@ export default function Tabungan({ state, dispatch }) {
     dispatch({ type: 'pakaiDana', pos, month: kini, amount: n, note: pakai.note.trim().slice(0, 80) })
     setErr(''); setPakai({ amount: '', note: '' })
   }
+  const submitLokasi = (e) => {
+    e.preventDefault()
+    if (!lok.name.trim()) return
+    dispatch({ type: 'addLokasi', pos, name: lok.name, amount: Number(lok.amount) || 0 })
+    setLok({ name: '', amount: '' })
+  }
   const submitTarget = (e) => { e.preventDefault(); dispatch({ type: 'setTargetTabungan', pos, amount: Number(tgt) || 0 }); setTgt('') }
 
   return (
@@ -84,6 +93,7 @@ export default function Tabungan({ state, dispatch }) {
           {dipakai > 0 && <div><small>Sudah dipakai</small><b>{rupiah(dipakai)}</b></div>}
         </div>
       </section>
+      {lokasi.length > 0 && <small className="hint">Disimpan di: <b>{lokasi.map((x) => x.note).join(', ')}</b></small>}
       <small className="hint">{KET[pos]}. Total semua tabungan: <b>{rupiah(totalSemua)}</b></small>
 
       {pos !== 'rutin' && (
@@ -96,6 +106,19 @@ export default function Tabungan({ state, dispatch }) {
         </Panel>
       )}
 
+      <Panel title="Disimpan di mana" sub={`Catat rekening atau ATM tempat ${namaPos.toLowerCase()} disimpan`}>
+        <form className="inline" onSubmit={submitLokasi}>
+          <input list="daftar-rekening" placeholder="Bank / ATM (mis. BCA)" value={lok.name} maxLength={60} onChange={(e) => setLok({ ...lok, name: e.target.value })} aria-label="Nama bank atau ATM" />
+          <input type="number" inputMode="numeric" placeholder="Jumlah di sana (opsional)" value={lok.amount} onChange={(e) => setLok({ ...lok, amount: e.target.value })} aria-label="Jumlah di sana" />
+          <button className="btn">Tambah</button>
+          <datalist id="daftar-rekening">{(state.accounts || []).map((a) => <option key={a.id} value={a.name} />)}</datalist>
+        </form>
+        {lokasi.map((x) => (
+          <div key={x.id} className="trow"><div><strong>{x.note}</strong><small>{x.amount > 0 ? rupiah(x.amount) : 'Jumlah tidak dicatat'}</small></div><button className="btn sm" onClick={() => dispatch({ type: 'deleteSaving', id: x.id })} aria-label={'Hapus ' + x.note}>Hapus</button></div>
+        ))}
+        {dialokasi > 0 && <small>{dialokasi === saldo ? 'Pas dengan saldo.' : dialokasi < saldo ? `Belum tercatat tempatnya: ${rupiah(saldo - dialokasi)}` : `Lebih ${rupiah(dialokasi - saldo)} dari saldo`}</small>}
+        {lokasi.length === 0 && <Empty>Belum dicatat disimpan di mana.</Empty>}
+      </Panel>
       {(
         <Panel title="Pakai / tarik dana" sub={`Catat saat ${namaPos.toLowerCase()} dipakai atau diambil; saldo berkurang`}>
           <form className="inline" onSubmit={submitPakai}>
