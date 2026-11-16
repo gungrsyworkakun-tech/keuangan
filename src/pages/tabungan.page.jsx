@@ -96,6 +96,19 @@ export default function Tabungan({ state, dispatch }) {
         </Panel>
       )}
 
+      {(
+        <Panel title="Pakai / tarik dana" sub={`Catat saat ${namaPos.toLowerCase()} dipakai atau diambil; saldo berkurang`}>
+          <form className="inline" onSubmit={submitPakai}>
+            <input type="number" inputMode="numeric" placeholder="Jumlah dipakai (Rp)" value={pakai.amount} onChange={(e) => setPakai({ ...pakai, amount: e.target.value })} aria-label="Jumlah dipakai" />
+            <input placeholder={pos === 'kesehatan' ? 'Untuk apa (mis. berobat)' : pos === 'rutin' ? 'Untuk apa (mis. beli laptop)' : 'Untuk apa'} value={pakai.note} maxLength={80} onChange={(e) => setPakai({ ...pakai, note: e.target.value })} aria-label="Keperluan" />
+            <button className="btn primary">Catat</button>
+          </form>
+          {err && <em role="alert">{err}</em>}
+          {pemakaian.map((x) => (
+            <div key={x.id} className="trow"><div><strong>{rupiah(-x.amount)}</strong><small>{bulanLabel(x.month)}{x.note ? ' · ' + x.note : ''}</small></div><button className="btn sm" onClick={() => dispatch({ type: 'deleteSaving', id: x.id })} aria-label={'Hapus pemakaian ' + rupiah(-x.amount)}>Hapus</button></div>
+          ))}
+        </Panel>
+      )}
       <Panel title={namaPos + ' ' + tahun} sub={`Total disetor tahun ini ${rupiah(totalTahun)}`}
         action={<div className="chips" role="group" aria-label="Pilih tahun"><button className="chip" aria-label="Tahun sebelumnya" onClick={() => setTahun(tahun - 1)}>‹</button><span className="chip on">{tahun}</span><button className="chip" aria-label="Tahun berikutnya" onClick={() => setTahun(tahun + 1)}>›</button></div>}>
         <BarChart data={batang} series={[{ key: 'jumlah', label: 'Setoran', color: 'var(--data-1)' }]} height={180} />
@@ -123,19 +136,6 @@ export default function Tabungan({ state, dispatch }) {
         </form>
         {pesan && <p className="empty" role="status">{pesan}</p>}
       </Panel>
-      {pos !== 'rutin' && (
-        <Panel title="Pakai dana" sub={`Catat saat ${namaPos.toLowerCase()} dipakai; saldo berkurang`}>
-          <form className="inline" onSubmit={submitPakai}>
-            <input type="number" inputMode="numeric" placeholder="Jumlah dipakai (Rp)" value={pakai.amount} onChange={(e) => setPakai({ ...pakai, amount: e.target.value })} aria-label="Jumlah dipakai" />
-            <input placeholder={pos === 'kesehatan' ? 'Untuk apa (mis. berobat)' : 'Untuk apa'} value={pakai.note} maxLength={80} onChange={(e) => setPakai({ ...pakai, note: e.target.value })} aria-label="Keperluan" />
-            <button className="btn primary">Catat</button>
-          </form>
-          {err && <em role="alert">{err}</em>}
-          {pemakaian.map((x) => (
-            <div key={x.id} className="trow"><div><strong>{rupiah(-x.amount)}</strong><small>{bulanLabel(x.month)}{x.note ? ' · ' + x.note : ''}</small></div><button className="btn sm" onClick={() => dispatch({ type: 'deleteSaving', id: x.id })} aria-label={'Hapus pemakaian ' + rupiah(-x.amount)}>Hapus</button></div>
-          ))}
-        </Panel>
-      )}
       {terbesar && <Panel title="Setoran terbesar"><p><b>{rupiah(terbesar.amount)}</b> <small>pada {bulanLabel(terbesar.month)}</small></p></Panel>}
       {terisi === 0 && <Empty>Belum ada setoran di {namaPos.toLowerCase()}. Mulai isi bulan di atas atau pakai isi sekaligus.</Empty>}
     </>
