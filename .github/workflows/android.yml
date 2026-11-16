@@ -42,22 +42,29 @@ jobs:
           echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
           echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> "$GITHUB_ENV"
           echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> "$GITHUB_ENV"
-      - name: AAB untuk Play Store
+      - name: APK rilis bertanda tangan + AAB untuk Play Store
         if: ${{ env.KEYSTORE_BASE64 != '' }}
         working-directory: android
-        run: ./gradlew bundleRelease
+        run: ./gradlew assembleRelease bundleRelease
       - uses: actions/upload-artifact@v4
         with:
           name: duitku-android
           path: |
             android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/release/*.apk
             android/app/build/outputs/bundle/release/*.aab
       - name: Taruh APK di halaman Releases (supaya bisa diunduh langsung dari HP)
         if: ${{ github.event_name != 'pull_request' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk Duitku.apk
+          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk Duitku.apk
+            JENIS="APK rilis (bertanda tangan kunci Duitku, bisa saling menimpa saat update)"
+          else
+            cp android/app/build/outputs/apk/debug/app-debug.apk Duitku.apk
+            JENIS="APK percobaan (debug)"
+          fi
           gh release delete apk-terbaru --yes --cleanup-tag || true
           gh release create apk-terbaru Duitku.apk --prerelease --target "$GITHUB_SHA" \
-            --title "Duitku APK terbaru" --notes "APK percobaan (build #${{ github.run_number }}). Unduh Duitku.apk lalu pasang di HP Android."
+            --title "Duitku APK terbaru" --notes "$JENIS, build #${{ github.run_number }}. Unduh Duitku.apk lalu pasang di HP Android."
