@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { Panel } from './ui'
 import { I } from '../components/icons'
 import { inisial } from '../lib/format'
+import skripBackup from '../../apps-script/Backup.gs?raw'
+import { gantiPassword as gantiLokal } from '../lib/akun-lokal'
+import { kunciDraf, hapusKunciDraf, skripDenganKunci } from '../lib/sheets-script'
+import { buatBerkas, bacaBerkas, namaBerkas, simpanBerkas } from '../lib/backup-file'
 
 function Pesan({ p }) {
   if (!p) return null
@@ -15,13 +19,34 @@ function waktu(iso) {
 
 function BackupSheets({ c }) {
   const terhubung = Boolean(c.meta && c.meta.id)
+  const [url, setUrl] = useState(''), [kunci, setKunci] = useState(() => kunciDraf()), [salin, setSalin] = useState('')
   return (
-    <Panel title="Backup ke Google Sheets" sub="Data utama ada di HP ini. Salinannya otomatis dikirim ke Google Sheets milikmu">
-      {!terhubung && c.status !== 'pilih' && (
+    <Panel title="Backup otomatis ke Google Sheets" sub="Data utama ada di HP ini. Salinannya otomatis dikirim ke Sheet milikmu">
+      {!terhubung && c.status !== 'pilih' && c.jenis === 'script' && (
+        <form className="stack" onSubmit={(e) => { e.preventDefault(); c.hubungkan({ url: url.trim(), kunci: kunci.trim() }).then(() => hapusKunciDraf()) }}>
+          <p className="hint">Tempel <b>Link</b> dan <b>Kunci</b> dari skrip di Google Sheet-mu. Data tetap utama di HP; Sheet hanya salinan yang diperbarui otomatis.</p>
+          <label>Link skrip<input inputMode="url" autoCapitalize="none" autoCorrect="off" placeholder="https://script.google.com/macros/s/…/exec" value={url} onChange={(e) => setUrl(e.target.value)} /></label>
+          <label>Kunci rahasia (dibuat otomatis, sudah ada di skrip yang disalin)<input autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck="false" value={kunci} onChange={(e) => setKunci(e.target.value)} /></label>
+          {c.pesan && <p role="alert" className="out">{c.pesan}</p>}
+          <button className="btn primary" disabled={c.status === 'menghubungkan' || !url || !kunci}>{c.status === 'menghubungkan' ? 'Menghubungkan…' : 'Hubungkan & tes'}</button>
+          <details className="pasang">
+            <summary>Cara menyiapkan Sheet (sekali, sekitar 5 menit)</summary>
+            <ol>
+              <li>Tekan <b>Salin skrip</b> di bawah (kunci sudah terisi otomatis).</li>
+              <li>Buka <b>sheets.new</b> (Google Sheet kosong), lalu menu <b>Ekstensi → Apps Script</b>. Hapus isinya dan tempel skrip tadi.</li>
+              <li>Klik <b>Deploy → Deployment baru → Aplikasi web</b>. Jalankan sebagai <b>Saya</b>, akses <b>Siapa saja</b>, lalu <b>Deploy</b> dan izinkan akses.</li>
+              <li>Salin <b>URL aplikasi web</b> (berakhiran /exec), tempel di kolom Link di atas, lalu <b>Hubungkan & tes</b>.</li>
+            </ol>
+            <button type="button" className="btn" onClick={async () => { try { await navigator.clipboard.writeText(skripDenganKunci(skripBackup, kunci.trim())); setSalin('Skrip tersalin. Tempel di Apps Script.') } catch { setSalin('Tidak bisa menyalin; buka file apps-script/Backup.gs') } }}>Salin skrip</button>
+            {salin && <small className="hint"> {salin}</small>}
+          </details>
+        </form>
+      )}
+      {!terhubung && c.status !== 'pilih' && c.jenis !== 'script' && (
         <div className="stack">
           <p className="hint">Masuk dengan akun Google. Duitku membuat satu spreadsheet bernama “Duitku Backup” di Google Drive-mu. Aplikasi hanya bisa membuka file itu, bukan file Drive lainnya.</p>
           {c.pesan && <p role="alert" className="out">{c.pesan}</p>}
-          <button className="btn primary" disabled={c.status === 'menghubungkan'} onClick={c.hubungkan}>{c.status === 'menghubungkan' ? 'Menghubungkan…' : 'Masuk dengan Google'}</button>
+          <button className="btn primary" disabled={c.status === 'menghubungkan'} onClick={() => c.hubungkan()}>{c.status === 'menghubungkan' ? 'Menghubungkan…' : 'Masuk dengan Google'}</button>
         </div>
       )}
       {c.status === 'pilih' && c.pilihan && (
@@ -33,7 +58,7 @@ function BackupSheets({ c }) {
       )}
       {terhubung && c.status !== 'pilih' && (
         <div className="stack">
-          <p>Terhubung{c.meta.email ? ' sebagai ' + c.meta.email : ''}. Terakhir dicadangkan: <b>{waktu(c.meta.terakhir)}</b>.</p>
+          <p>Terhubung{c.meta.email ? ' ke ' + c.meta.email : ''}. Terakhir dicadangkan: <b>{waktu(c.meta.terakhir)}</b>.</p>
           {c.status === 'gagal' && <p role="alert" className="out">{c.pesan || 'Backup gagal'}. Data tetap aman di HP, akan dicoba lagi otomatis.</p>}
           <div className="actions-row">
             <button className="btn" onClick={c.cadangkanSekarang} disabled={c.status === 'menyimpan'}>{c.status === 'menyimpan' ? 'Mencadangkan…' : 'Cadangkan sekarang'}</button>
@@ -46,8 +71,64 @@ function BackupSheets({ c }) {
   )
 }
 
+function BackupFile({ state, pulihkan }) {
+  const [pesan, setPesan] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const simpan = async () => {
+    setBusy(true); setPesan(null)
+    try { const r = await simpanBerkas(buatBerkas(state), namaBerkas()); setPesan({ ok: true, teks: r === 'dibagikan' ? 'Pilih tujuan penyimpanan (Drive, WhatsApp, Files, dll).' : 'File backup diunduh.' }) }
+    catch (e) { if (!/cancel|dismiss/i.test(String(e && e.message))) setPesan({ ok: false, teks: 'Gagal menyimpan backup: ' + ((e && e.message) || 'coba lagi') }) }
+    setBusy(false)
+  }
+  const pilih = async (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ''
+    if (!f) return
+    setPesan(null)
+    try {
+      const r = bacaBerkas(await f.text())
+      if (window.confirm('File ini berisi ' + r.jumlah + ' catatan. Data di HP ini akan diganti. Lanjutkan?')) { pulihkan(r.state); setPesan({ ok: true, teks: 'Data berhasil dipulihkan (' + r.jumlah + ' catatan).' }) }
+    } catch (err) { setPesan({ ok: false, teks: err.message }) }
+  }
+  return (
+    <Panel title="Backup ke file" sub="Data utama ada di HP ini. Simpan salinannya ke tempat lain supaya aman">
+      <div className="stack">
+        <p className="hint">Tekan <b>Simpan backup</b>, lalu pilih tujuan (Google Drive, WhatsApp ke dirimu sendiri, dll). Kalau ganti HP atau data hilang, tekan <b>Pulihkan dari file</b> dan pilih file itu. Lakukan secara rutin, misalnya seminggu sekali.</p>
+        <Pesan p={pesan} />
+        <div className="actions-row">
+          <button className="btn primary" onClick={simpan} disabled={busy}>{busy ? 'Menyiapkan…' : 'Simpan backup'}</button>
+          <label className="btn" style={{ cursor: 'pointer' }}>Pulihkan dari file<input type="file" accept=".json,application/json" onChange={pilih} style={{ display: 'none' }} /></label>
+        </div>
+      </div>
+    </Panel>
+  )
+}
+
+function GantiPasswordLokal() {
+  const [lama, setLama] = useState(''), [baru, setBaru] = useState(''), [ulang, setUlang] = useState('')
+  const [p, setP] = useState(null), [busy, setBusy] = useState(false)
+  const kirim = async (e) => {
+    e.preventDefault(); setP(null)
+    if (baru !== ulang) return setP({ ok: false, teks: 'Password baru dan ulangannya tidak sama' })
+    setBusy(true)
+    try { await gantiLokal(lama, baru); setLama(''); setBaru(''); setUlang(''); setP({ ok: true, teks: 'Password diganti' }) }
+    catch (err) { setP({ ok: false, teks: err.message }) }
+    setBusy(false)
+  }
+  return (
+    <Panel title="Ganti password" sub="Password untuk membuka Duitku di HP ini. Minimal 6 karakter">
+      <form className="stack" onSubmit={kirim}>
+        <label>Password lama<input type="password" autoComplete="current-password" value={lama} onChange={(e) => setLama(e.target.value)} /></label>
+        <label>Password baru<input type="password" autoComplete="new-password" value={baru} onChange={(e) => setBaru(e.target.value)} /></label>
+        <label>Ulangi password baru<input type="password" autoComplete="new-password" value={ulang} onChange={(e) => setUlang(e.target.value)} /></label>
+        <Pesan p={p} />
+        <button className="btn primary" disabled={busy}>{busy ? 'Menyimpan…' : 'Ganti password'}</button>
+      </form>
+    </Panel>
+  )
+}
+
 export default function Profil({ akun }) {
-  const { profil, simpanProfil, gantiPassword, sheets, onLogout, onBackup, cadang } = akun
+  const { profil, simpanProfil, gantiPassword, sheets, onLogout, onBackup, cadang, native, state, pulihkanData } = akun
   const [nama, setNama] = useState(profil.nama || '')
   const [pn, setPn] = useState(null), [busyN, setBusyN] = useState(false)
   const [lama, setLama] = useState(''), [baru, setBaru] = useState(''), [ulang, setUlang] = useState('')
@@ -85,7 +166,7 @@ export default function Profil({ akun }) {
             <button className="btn primary" disabled={busyN}>{busyN ? 'Menyimpan…' : 'Simpan profil'}</button>
           </form>
         </Panel>
-        {!cadang && <Panel title="Ganti password" sub="Minimal 8 karakter">
+        {!native && <Panel title="Ganti password" sub="Minimal 8 karakter">
           {sheets ? (
             <form className="stack" onSubmit={kirimPass}>
               <label>Password lama<input type="password" autoComplete="current-password" value={lama} onChange={(e) => setLama(e.target.value)} /></label>
@@ -96,9 +177,11 @@ export default function Profil({ akun }) {
             </form>
           ) : <p className="empty">Login dan password aktif setelah aplikasi terhubung ke Google Sheets.</p>}
         </Panel>}
+        {native && <GantiPasswordLokal />}
+        {native && <BackupFile state={state} pulihkan={pulihkanData} />}
         {cadang && <BackupSheets c={cadang} />}
       </div>
-      {!cadang && <Panel title="Pasang di HP" sub="Buka Duitku dari layar utama, tanpa mengetik alamat">
+      {!native && <Panel title="Pasang di HP" sub="Buka Duitku dari layar utama, tanpa mengetik alamat">
         <details className="pasang" open>
           <summary>Android (Chrome)</summary>
           <ol><li>Buka alamat Duitku di Chrome lalu login.</li><li>Ketuk menu <b>⋮</b> → <b>Instal aplikasi</b> (atau <b>Tambahkan ke layar utama</b>).</li><li>Tekan lama ikon <b>Duitku</b> di layar utama untuk pintasan <b>Catat pengeluaran</b> dan <b>Catat pemasukan</b>.</li></ol>
@@ -109,11 +192,11 @@ export default function Profil({ akun }) {
         </details>
         <small className="hint">Di HP pribadi, centang “Ingat saya” saat login supaya tidak perlu masuk ulang setiap membuka.</small>
       </Panel>}
-      {sheets && (
+      {(sheets || native) && (
         <Panel title="Data & akun">
           <div className="actions-row">
-            <button className="btn" onClick={onBackup}><I n="backup" size={18} /> Backup ke Drive</button>
-            <button className="btn danger" onClick={onLogout}><I n="logout" size={18} /> Keluar</button>
+            {!native && <button className="btn" onClick={onBackup}><I n="backup" size={18} /> Backup ke Drive</button>}
+            <button className="btn danger" onClick={onLogout}><I n="logout" size={18} /> {native ? 'Kunci aplikasi' : 'Keluar'}</button>
           </div>
         </Panel>
       )}

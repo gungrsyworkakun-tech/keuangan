@@ -1,25 +1,31 @@
 # Duitku untuk Android — panduan lengkap
 
-Aplikasi menyimpan data di HP. Backup ke Google Sheets lewat tombol "Masuk dengan Google" di menu Profil.
+Aplikasi menyimpan data di HP. Login dibuat sendiri di HP. Backup lewat file: menu Profil → **Simpan backup** (kirim ke Drive/WhatsApp) dan **Pulihkan dari file**. Backup otomatis ke Google Sheets bersifat **opsional**: isi Link + Kunci di Profil (Bagian 1).
 APK/AAB dibuat otomatis oleh GitHub (laptopmu tidak perlu memasang Android Studio).
 
-## Bagian 1 — Siapkan Google (sekali saja, gratis)
-1. Buka https://console.cloud.google.com lalu buat project baru, misalnya "Duitku".
-2. Menu **APIs & Services → Library**: aktifkan **Google Sheets API** dan **Google Drive API**.
-3. **OAuth consent screen**: pilih External, isi nama aplikasi "Duitku", email, dan alamat kebijakan privasi (lihat Bagian 4). Tambahkan izin `.../auth/drive.file`. Izin ini tidak termasuk izin sensitif.
-4. Klik **Publish app** supaya semua orang bisa masuk (kalau masih "Testing", hanya email yang kamu daftarkan yang bisa).
-5. **Credentials → Create credentials → OAuth client ID**:
-   - Jenis **Web application** → salin Client ID-nya. Ini yang dipakai aplikasi.
-   - Jenis **Android** → isi package name `app.duitku.keuangan` dan SHA-1 (Bagian 3). Buat satu untuk tiap SHA-1 (debug dan Play).
+## Bagian 1 — Hubungkan Sheet (tanpa login Google, tanpa Google Cloud)
+Dibuat sekali oleh tiap pengguna, sekitar 5 menit. Aplikasi mengirim salinan data ke Sheet milik pengguna itu sendiri.
+1. Di aplikasi: Profil → **Backup otomatis ke Google Sheets** → buka "Cara menyiapkan Sheet" → **Salin skrip**. Kunci rahasia sudah dibuat otomatis dan sudah ada di dalam skrip itu.
+2. Buka https://sheets.new (Google Sheet kosong). Menu **Ekstensi → Apps Script**. Hapus isinya, lalu tempel skrip tadi dan simpan.
+3. **Deploy → Deployment baru → Aplikasi web**. Jalankan sebagai **Saya**, akses **Siapa saja**. Klik **Deploy**, lalu izinkan akses (Google memperingatkan "belum diverifikasi"; klik Lanjutan → buka, karena skrip ini buatanmu sendiri).
+4. Salin **URL aplikasi web** (berakhiran `/exec`), tempel di kolom Link di aplikasi, lalu **Hubungkan & tes**.
+
+Skrip ini juga mengambil harga emas, kripto, dan saham untuk menu Investasi (sama seperti skrip lama). Riwayat versi Sheet tersedia lewat File → Riwayat versi, sebagai pengganti backup harian ke Drive.
+
+Skrip yang sama ada di `apps-script/Backup.gs`. Kalau menyalin dari file itu (bukan dari aplikasi), ganti `KUNCI_RAHASIA` dengan kata rahasia panjang dan isi kata yang sama di kolom Kunci.
+
+Keamanan: link boleh dibuka siapa saja, tapi tanpa Kunci yang benar skrip menolak semua permintaan. Jangan bagikan Kunci. Aplikasi hanya mau mengirim data ke alamat `script.google.com`.
+
+Login di aplikasi: username dan password dibuat sendiri saat pertama membuka aplikasi dan hanya tersimpan di HP (dalam bentuk hash). Kalau lupa password, pilih "Lupa password" (data HP dihapus) lalu pulihkan dari backup file atau Sheet.
 
 ## Bagian 2 — Pasang di GitHub
-Di repo: **Settings → Secrets and variables → Actions**
-- Tab **Variables**: `GOOGLE_WEB_CLIENT_ID` = Client ID jenis Web tadi.
-- Tab **Secrets** (untuk versi Play Store): `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
+Untuk versi Play Store, di repo: **Settings → Secrets and variables → Actions → Secrets**: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 
 Membuat keystore (sekali, simpan baik-baik, jangan hilang):
 `keytool -genkeypair -v -keystore duitku.jks -alias duitku -keyalg RSA -keysize 2048 -validity 10000`
-lalu ubah ke teks: `base64 -w0 duitku.jks` dan tempel hasilnya ke `KEYSTORE_BASE64`.
+lalu `base64 -w0 duitku.jks` dan tempel hasilnya ke `KEYSTORE_BASE64`.
+
+(Opsional) Login Google sebagai cara lain: isi variabel `GOOGLE_WEB_CLIENT_ID` (Client ID jenis Web dari Google Cloud Console, dengan Sheets API dan Drive API aktif). Kalau variabel ini ada, tombol "Masuk dengan Google" menggantikan kolom Link + Kunci.
 
 ## Bagian 3 — Bangun aplikasi
 Tab **Actions → Android → Run workflow**. Setelah selesai, unduh artefak `duitku-android`:

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { buatKlien, kosong, hitung } from './sheets-backup'
-import { akunGoogle, masukGoogle, keluarGoogle, ambilToken } from './google'
+import { kosong, hitung } from './sheets-backup'
+import { sumberAktif } from './sumber'
 
 const META = 'duitku-backup'
 const bacaMeta = () => { try { return JSON.parse(localStorage.getItem(META) || 'null') } catch { return null } }
@@ -8,13 +8,13 @@ const tulisMeta = (m) => { try { m ? localStorage.setItem(META, JSON.stringify(m
 const JEDA = 8000 // cadangkan 8 detik setelah perubahan terakhir (beberapa ubahan jadi satu kali kirim)
 
 // status: mati | menghubungkan | pilih | siap | menyimpan | gagal
-export function useBackup(state, dispatch, aktif) {
+export function useBackup(state, dispatch, aktif, sumber = sumberAktif) {
   const awal = aktif ? bacaMeta() : null
   const [meta, setMeta] = useState(awal)               // { id, email, terakhir }
   const [status, setStatus] = useState(awal ? 'siap' : 'mati')
   const [pesan, setPesan] = useState('')
   const [pilihan, setPilihan] = useState(null)         // { id, data, jumlahSheet, jumlahHp } saat data HP dan Sheets sama-sama ada
-  const klien = useRef(buatKlien({ ambilToken })).current
+  const klien = sumber.klien
   const stateRef = useRef(state); stateRef.current = state
   const metaRef = useRef(meta); metaRef.current = meta
   const sibuk = useRef(false), antre = useRef(false), kotor = useRef(false), lewat = useRef(true)
@@ -53,10 +53,10 @@ export function useBackup(state, dispatch, aktif) {
     return () => window.removeEventListener('online', on)
   }, [])
 
-  const hubungkan = useCallback(async () => {
+  const hubungkan = useCallback(async (input) => {
     setStatus('menghubungkan'); setPesan('')
     try {
-      const akun = await masukGoogle()
+      const akun = await sumber.masuk(input)
       const id = await klien.cari()
       if (!id) {
         const baru = await klien.buat()
@@ -79,11 +79,11 @@ export function useBackup(state, dispatch, aktif) {
       simpanMeta({ id, email: akun.email })
       setPilihan({ id, data, jumlahSheet: hitung(data), jumlahHp: hitung(stateRef.current) })
       setStatus('pilih')
-    } catch (e) { setStatus(metaRef.current ? 'gagal' : 'mati'); setPesan(e.message || 'Gagal terhubung ke Google') }
+    } catch (e) { if (!metaRef.current) { try { await sumber.keluar() } catch {} } setStatus(metaRef.current ? 'gagal' : 'mati'); setPesan(e.message || 'Gagal terhubung') }
   }, [dispatch])
 
   const putuskan = useCallback(async () => {
-    await keluarGoogle(); tulisMeta(null); setMeta(null); setPilihan(null); setStatus('mati'); setPesan('')
+    await sumber.keluar(); tulisMeta(null); setMeta(null); setPilihan(null); setStatus('mati'); setPesan('')
   }, [])
 
   const pakaiSheets = useCallback(() => {
@@ -106,6 +106,5 @@ export function useBackup(state, dispatch, aktif) {
     } catch (e) { setStatus('gagal'); setPesan(e.message || 'Gagal memulihkan') }
   }, [dispatch])
 
-  const adaGoogle = Boolean(akunGoogle())
-  return { aktif, status, pesan, meta, pilihan, adaGoogle, hubungkan, putuskan, pakaiSheets, pakaiHp, pulihkan, cadangkanSekarang: kirim }
+  return { aktif, jenis: sumber.jenis, status, pesan, meta, pilihan, hubungkan, putuskan, pakaiSheets, pakaiHp, pulihkan, cadangkanSekarang: kirim }
 }

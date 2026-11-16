@@ -5,6 +5,7 @@ const IZIN = ['https://www.googleapis.com/auth/drive.file']
 const baca = () => { try { return JSON.parse(localStorage.getItem(KUNCI) || 'null') } catch { return null } }
 const tulis = (v) => { try { v ? localStorage.setItem(KUNCI, JSON.stringify(v)) : localStorage.removeItem(KUNCI) } catch {} }
 
+export const GOOGLE_ADA = Boolean(import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID)
 export const akunGoogle = () => baca()
 
 let siap = null
