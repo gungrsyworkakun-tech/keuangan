@@ -6,6 +6,9 @@ on:
     tags: ['v*']
     branches: [aplikasi-android]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -49,3 +52,12 @@ jobs:
           path: |
             android/app/build/outputs/apk/debug/*.apk
             android/app/build/outputs/bundle/release/*.aab
+      - name: Taruh APK di halaman Releases (supaya bisa diunduh langsung dari HP)
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk Duitku.apk
+          gh release delete apk-terbaru --yes --cleanup-tag || true
+          gh release create apk-terbaru Duitku.apk --prerelease --target "$GITHUB_SHA" \
+            --title "Duitku APK terbaru" --notes "APK percobaan (build #${{ github.run_number }}). Unduh Duitku.apk lalu pasang di HP Android."
