@@ -2,7 +2,8 @@ import { Component, Suspense, lazy, useEffect, useState } from 'react'
 import { useStore } from './lib/store'
 import { MODE_SHEETS, NATIVE, call, getToken, setToken, hapusCache } from './lib/api'
 import { useBackup } from './lib/use-backup'
-import { GOOGLE_ADA } from './lib/google'
+import LoginLokal from './pages/login-lokal.page.jsx'
+import { sudahBuka, kunciLagi } from './lib/akun-lokal'
 import FinanceShell, { MENU } from './layouts/finance-shell.layout.jsx'
 import TransactionDialog from './pages/transaction-dialog.jsx'
 import Login from './pages/login.page.jsx'
@@ -41,18 +42,18 @@ class Penjaga extends Component {
 }
 
 export default function App() {
-  const [masuk, setMasuk] = useState(!MODE_SHEETS || Boolean(getToken()))
-  const keluar = () => { setToken(''); hapusCache(); setMasuk(false) }
+  const [masuk, setMasuk] = useState(NATIVE ? sudahBuka() : (!MODE_SHEETS || Boolean(getToken())))
+  const keluar = () => { setToken(''); hapusCache(); if (NATIVE) kunciLagi(); setMasuk(false) }
   return (
     <Penjaga>
-      {masuk ? <Main onKeluar={keluar} /> : <Login onLogin={() => setMasuk(true)} />}
+      {masuk ? <Main onKeluar={keluar} /> : NATIVE ? <LoginLokal onMasuk={() => setMasuk(true)} /> : <Login onLogin={() => setMasuk(true)} />}
     </Penjaga>
   )
 }
 
 function Main({ onKeluar }) {
   const [state, dispatch, meta] = useStore(onKeluar)
-  const cadang = useBackup(state, dispatch, NATIVE && GOOGLE_ADA)
+  const cadang = useBackup(state, dispatch, NATIVE)
   const [route, setRoute] = useState(currentRoute())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [tipeAwal, setTipeAwal] = useState('out')
@@ -79,7 +80,7 @@ function Main({ onKeluar }) {
     return () => window.removeEventListener('hashchange', on)
   }, [])
 
-  const logout = async () => { try { await call('logout') } catch {} ; onKeluar() }
+  const logout = async () => { if (!NATIVE) { try { await call('logout') } catch {} } onKeluar() }
   const backup = async () => {
     setInfo('Membuat backup…')
     try { const r = await call('backup'); setInfo(r.ok ? 'Backup tersimpan di Drive' : r.error) } catch { setInfo('Backup gagal') }
@@ -89,21 +90,21 @@ function Main({ onKeluar }) {
   const Page = PAGES[route]
   const title = MENU.find((m) => m.id === route).label
   const terkunci = MODE_SHEETS && !meta.segar
-  const teksCadang = { mati: 'Tersimpan di HP · backup Sheets belum aktif', menghubungkan: 'Menghubungkan ke Google…', pilih: 'Pilih data yang dipakai (menu Profil)', siap: 'Tersimpan di HP · backup Sheets aktif', menyimpan: 'Mencadangkan ke Sheets…', gagal: 'Backup Sheets gagal' + (cadang.pesan ? ': ' + cadang.pesan : '') }
-  const statusText = NATIVE ? (GOOGLE_ADA ? teksCadang[cadang.status] : 'Tersimpan di HP')
+  const teksCadang = { mati: 'Tersimpan di HP · backup Sheets belum aktif', menghubungkan: 'Menghubungkan ke Sheet…', pilih: 'Pilih data yang dipakai (menu Profil)', siap: 'Tersimpan di HP · backup Sheets aktif', menyimpan: 'Mencadangkan ke Sheets…', gagal: 'Backup Sheets gagal' + (cadang.pesan ? ': ' + cadang.pesan : '') }
+  const statusText = NATIVE ? teksCadang[cadang.status]
     : !MODE_SHEETS ? 'Mode lokal'
     : terkunci ? (meta.pesan ? meta.pesan + ' · baca saja' : 'Menyinkronkan…')
     : meta.saveStatus === 'saving' ? 'Menyimpan…'
     : meta.saveStatus === 'error' ? 'Gagal menyimpan: ' + meta.pesan
     : 'Tersimpan di Sheets'
-  const akun = { native: NATIVE, cadang: NATIVE && GOOGLE_ADA ? cadang : null, state, pulihkanData: (st) => dispatch({ type: 'replace', state: st }), profil: meta.profil, simpanProfil: meta.simpanProfil, gantiPassword: meta.gantiPassword, sheets: MODE_SHEETS, onLogout: logout, onBackup: backup }
+  const akun = { native: NATIVE, cadang: NATIVE ? cadang : null, state, pulihkanData: (st) => dispatch({ type: 'replace', state: st }), profil: meta.profil, simpanProfil: meta.simpanProfil, gantiPassword: meta.gantiPassword, sheets: MODE_SHEETS, onLogout: logout, onBackup: backup }
 
   return (
     <FinanceShell route={route} title={title} nama={meta.profil.nama} username={meta.profil.username}
       onAdd={() => bukaCatat('out')} locked={terkunci}
-      saveStatus={NATIVE ? (!GOOGLE_ADA ? 'saved' : cadang.status === 'gagal' ? 'error' : cadang.status === 'menyimpan' || cadang.status === 'menghubungkan' ? 'saving' : 'saved') : terkunci ? (meta.pesan ? 'error' : 'saving') : meta.saveStatus} statusText={statusText} info={info}
+      saveStatus={NATIVE ? (cadang.status === 'gagal' ? 'error' : cadang.status === 'menyimpan' || cadang.status === 'menghubungkan' ? 'saving' : 'saved') : terkunci ? (meta.pesan ? 'error' : 'saving') : meta.saveStatus} statusText={statusText} info={info}
       onRetry={NATIVE ? cadang.cadangkanSekarang : terkunci ? meta.muat : meta.simpan}
-      onLogout={MODE_SHEETS ? logout : null} onBackup={MODE_SHEETS ? backup : null}>
+      onLogout={MODE_SHEETS || NATIVE ? logout : null} onBackup={MODE_SHEETS ? backup : null}>
       {meta.status === 'loading' ? <><Progres {...prog} /><Skeleton /></>
         : meta.status === 'error' ? <div className="panel"><p role="alert" className="out">{meta.pesan}</p><button className="btn primary" onClick={() => location.reload()}>Coba lagi</button></div>
         : (
