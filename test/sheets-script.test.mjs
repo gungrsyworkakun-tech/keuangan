@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import vm from 'node:vm'
 import fs from 'node:fs'
-import { buatKlienScript, cekLink, bacaConfig, simpanConfig } from '../src/lib/sheets-script.js'
+import { buatKlienScript, cekLink, bacaConfig, simpanConfig, kunciBaru, kunciDraf, skripDenganKunci } from '../src/lib/sheets-script.js'
 
 const KUNCI = 'kunci-rahasia-panjang-123'
 function jalankan(kodeAwal) {
@@ -63,6 +63,19 @@ assert.equal(bacaConfig(mem).kunci, KUNCI)
 peti['duitku-sheet'] = JSON.stringify({ url: 'https://evil.com/x', kunci: KUNCI })
 assert.equal(bacaConfig(mem), null)
 console.log('uji Link+Kunci lulus (skrip Backup.gs dijalankan dengan Sheets tiruan)')
+
+// --- kunci otomatis + skrip siap tempel ---
+const k1 = kunciBaru(), k2 = kunciBaru()
+assert.match(k1, /^[A-Za-z0-9]{24}$/); assert.notEqual(k1, k2)
+const siap = skripDenganKunci(asli, k1)
+assert.equal(siap.includes("'GANTI-INI-DENGAN-KATA-RAHASIA-PANJANG'"), false); assert.equal(siap.includes(k1), true)
+const hidup = jalankan(siap)   // skrip hasil salinan benar-benar bekerja dengan kunci itu
+assert.equal(await buatKlienScript({ ambil: () => ({ url: URL_OK, kunci: k1 }), fetcher: hidup.fetcher }).cari(), 'script')
+await assert.rejects(() => buatKlienScript({ ambil: () => ({ url: URL_OK, kunci: k2 }), fetcher: hidup.fetcher }).cari(), /Kunci salah/)
+assert.throws(() => skripDenganKunci(asli, 'pendek'), /tidak valid/)
+const draf = {}; const m2 = { getItem: (k) => draf[k] ?? null, setItem: (k, v) => { draf[k] = v } }
+assert.equal(kunciDraf(m2), kunciDraf(m2))
+console.log('uji kunci otomatis lulus')
 
 // --- akun lokal ---
 const simpan = {}

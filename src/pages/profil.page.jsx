@@ -3,6 +3,7 @@ import { Panel } from './ui'
 import { I } from '../components/icons'
 import { inisial } from '../lib/format'
 import skripBackup from '../../apps-script/Backup.gs?raw'
+import { kunciDraf, hapusKunciDraf, skripDenganKunci } from '../lib/sheets-script'
 import { buatBerkas, bacaBerkas, namaBerkas, simpanBerkas } from '../lib/backup-file'
 
 function Pesan({ p }) {
@@ -17,26 +18,25 @@ function waktu(iso) {
 
 function BackupSheets({ c }) {
   const terhubung = Boolean(c.meta && c.meta.id)
-  const [url, setUrl] = useState(''), [kunci, setKunci] = useState(''), [salin, setSalin] = useState('')
+  const [url, setUrl] = useState(''), [kunci, setKunci] = useState(() => kunciDraf()), [salin, setSalin] = useState('')
   return (
     <Panel title="Backup otomatis ke Google Sheets" sub="Data utama ada di HP ini. Salinannya otomatis dikirim ke Sheet milikmu">
       {!terhubung && c.status !== 'pilih' && c.jenis === 'script' && (
-        <form className="stack" onSubmit={(e) => { e.preventDefault(); c.hubungkan({ url: url.trim(), kunci }) }}>
+        <form className="stack" onSubmit={(e) => { e.preventDefault(); c.hubungkan({ url: url.trim(), kunci: kunci.trim() }).then(() => hapusKunciDraf()) }}>
           <p className="hint">Tempel <b>Link</b> dan <b>Kunci</b> dari skrip di Google Sheet-mu. Data tetap utama di HP; Sheet hanya salinan yang diperbarui otomatis.</p>
           <label>Link skrip<input inputMode="url" autoCapitalize="none" autoCorrect="off" placeholder="https://script.google.com/macros/s/…/exec" value={url} onChange={(e) => setUrl(e.target.value)} /></label>
-          <label>Kunci rahasia<input type="password" autoComplete="off" value={kunci} onChange={(e) => setKunci(e.target.value)} /></label>
+          <label>Kunci rahasia (dibuat otomatis, sudah ada di skrip yang disalin)<input autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck="false" value={kunci} onChange={(e) => setKunci(e.target.value)} /></label>
           {c.pesan && <p role="alert" className="out">{c.pesan}</p>}
           <button className="btn primary" disabled={c.status === 'menghubungkan' || !url || !kunci}>{c.status === 'menghubungkan' ? 'Menghubungkan…' : 'Hubungkan & tes'}</button>
           <details className="pasang">
             <summary>Cara menyiapkan Sheet (sekali, sekitar 5 menit)</summary>
             <ol>
-              <li>Buka <b>sheets.new</b> untuk membuat Google Sheet kosong.</li>
-              <li>Menu <b>Ekstensi → Apps Script</b>. Hapus isinya, lalu tempel skrip (tombol di bawah).</li>
-              <li>Di baris pertama skrip, ganti <b>KUNCI_RAHASIA</b> dengan kata rahasia buatanmu (minimal 16 huruf/angka), lalu simpan.</li>
+              <li>Tekan <b>Salin skrip</b> di bawah (kunci sudah terisi otomatis).</li>
+              <li>Buka <b>sheets.new</b> (Google Sheet kosong), lalu menu <b>Ekstensi → Apps Script</b>. Hapus isinya dan tempel skrip tadi.</li>
               <li>Klik <b>Deploy → Deployment baru → Aplikasi web</b>. Jalankan sebagai <b>Saya</b>, akses <b>Siapa saja</b>, lalu <b>Deploy</b> dan izinkan akses.</li>
-              <li>Salin <b>URL aplikasi web</b> (berakhiran /exec) ke kolom Link di atas, dan kata rahasia tadi ke kolom Kunci.</li>
+              <li>Salin <b>URL aplikasi web</b> (berakhiran /exec), tempel di kolom Link di atas, lalu <b>Hubungkan & tes</b>.</li>
             </ol>
-            <button type="button" className="btn" onClick={async () => { try { await navigator.clipboard.writeText(skripBackup); setSalin('Skrip tersalin') } catch { setSalin('Tidak bisa menyalin; buka file apps-script/Backup.gs') } }}>Salin skrip</button>
+            <button type="button" className="btn" onClick={async () => { try { await navigator.clipboard.writeText(skripDenganKunci(skripBackup, kunci.trim())); setSalin('Skrip tersalin. Tempel di Apps Script.') } catch { setSalin('Tidak bisa menyalin; buka file apps-script/Backup.gs') } }}>Salin skrip</button>
             {salin && <small className="hint"> {salin}</small>}
           </details>
         </form>

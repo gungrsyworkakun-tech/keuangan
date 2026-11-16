@@ -5,12 +5,12 @@ APK/AAB dibuat otomatis oleh GitHub (laptopmu tidak perlu memasang Android Studi
 
 ## Bagian 1 — Hubungkan Sheet (tanpa login Google, tanpa Google Cloud)
 Dibuat sekali oleh tiap pengguna, sekitar 5 menit. Aplikasi mengirim salinan data ke Sheet milik pengguna itu sendiri.
-1. Buka https://sheets.new untuk membuat Google Sheet kosong.
-2. Menu **Ekstensi → Apps Script**. Hapus isinya, lalu tempel isi file `apps-script/Backup.gs` (di aplikasi: Profil → "Cara menyiapkan Sheet" → **Salin skrip**).
-3. Di baris pertama skrip, ganti `KUNCI_RAHASIA` dengan kata rahasia buatanmu sendiri, minimal 16 huruf/angka. Simpan.
-4. **Deploy → Deployment baru → Aplikasi web**. Jalankan sebagai **Saya**, akses **Siapa saja**. Klik **Deploy**, lalu izinkan akses (Google akan memperingatkan "belum diverifikasi"; klik Lanjutan → buka, karena skrip ini buatanmu sendiri).
-5. Salin **URL aplikasi web** (berakhiran `/exec`).
-6. Di aplikasi: Profil → **Backup otomatis ke Google Sheets** → tempel Link dan Kunci → **Hubungkan & tes**.
+1. Di aplikasi: Profil → **Backup otomatis ke Google Sheets** → buka "Cara menyiapkan Sheet" → **Salin skrip**. Kunci rahasia sudah dibuat otomatis dan sudah ada di dalam skrip itu.
+2. Buka https://sheets.new (Google Sheet kosong). Menu **Ekstensi → Apps Script**. Hapus isinya, lalu tempel skrip tadi dan simpan.
+3. **Deploy → Deployment baru → Aplikasi web**. Jalankan sebagai **Saya**, akses **Siapa saja**. Klik **Deploy**, lalu izinkan akses (Google memperingatkan "belum diverifikasi"; klik Lanjutan → buka, karena skrip ini buatanmu sendiri).
+4. Salin **URL aplikasi web** (berakhiran `/exec`), tempel di kolom Link di aplikasi, lalu **Hubungkan & tes**.
+
+Skrip yang sama ada di `apps-script/Backup.gs`. Kalau menyalin dari file itu (bukan dari aplikasi), ganti `KUNCI_RAHASIA` dengan kata rahasia panjang dan isi kata yang sama di kolom Kunci.
 
 Keamanan: link boleh dibuka siapa saja, tapi tanpa Kunci yang benar skrip menolak semua permintaan. Jangan bagikan Kunci. Aplikasi hanya mau mengirim data ke alamat `script.google.com`.
 

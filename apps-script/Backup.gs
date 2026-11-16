@@ -2,9 +2,11 @@
  * DUITKU - Penampung backup di Google Sheets milikmu.
  * Cara pasang (sekitar 5 menit): lihat bagian "Sheet" di PANDUAN-ANDROID.md atau panduan di dalam aplikasi.
  *
- * 1) Ganti KUNCI_RAHASIA di bawah dengan kata rahasia buatanmu sendiri (minimal 16 huruf/angka).
- * 2) Deploy sebagai Web app: Jalankan sebagai "Saya", akses "Siapa saja".
- * 3) Tempel link Web app dan kunci yang sama di aplikasi Duitku (menu Profil).
+ * Kalau skrip ini disalin dari aplikasi Duitku (tombol "Salin skrip"), kuncinya sudah terisi otomatis.
+ * Kalau disalin dari tempat lain, ganti KUNCI_RAHASIA di bawah dengan kata rahasia panjang (minimal 16 huruf/angka).
+ *
+ * 1) Deploy > Deployment baru > Aplikasi web: Jalankan sebagai "Saya", akses "Siapa saja".
+ * 2) Tempel link /exec (dan kunci, kalau diganti manual) di aplikasi Duitku, menu Profil.
  */
 const KUNCI_RAHASIA = 'GANTI-INI-DENGAN-KATA-RAHASIA-PANJANG';
 
