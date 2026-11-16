@@ -10,6 +10,8 @@ Dibuat sekali oleh tiap pengguna, sekitar 5 menit. Aplikasi mengirim salinan dat
 3. **Deploy → Deployment baru → Aplikasi web**. Jalankan sebagai **Saya**, akses **Siapa saja**. Klik **Deploy**, lalu izinkan akses (Google memperingatkan "belum diverifikasi"; klik Lanjutan → buka, karena skrip ini buatanmu sendiri).
 4. Salin **URL aplikasi web** (berakhiran `/exec`), tempel di kolom Link di aplikasi, lalu **Hubungkan & tes**.
 
+Skrip ini juga mengambil harga emas, kripto, dan saham untuk menu Investasi (sama seperti skrip lama). Riwayat versi Sheet tersedia lewat File → Riwayat versi, sebagai pengganti backup harian ke Drive.
+
 Skrip yang sama ada di `apps-script/Backup.gs`. Kalau menyalin dari file itu (bukan dari aplikasi), ganti `KUNCI_RAHASIA` dengan kata rahasia panjang dan isi kata yang sama di kolom Kunci.
 
 Keamanan: link boleh dibuka siapa saja, tapi tanpa Kunci yang benar skrip menolak semua permintaan. Jangan bagikan Kunci. Aplikasi hanya mau mengirim data ke alamat `script.google.com`.

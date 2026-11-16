@@ -3,6 +3,7 @@ import { Panel } from './ui'
 import { I } from '../components/icons'
 import { inisial } from '../lib/format'
 import skripBackup from '../../apps-script/Backup.gs?raw'
+import { gantiPassword as gantiLokal } from '../lib/akun-lokal'
 import { kunciDraf, hapusKunciDraf, skripDenganKunci } from '../lib/sheets-script'
 import { buatBerkas, bacaBerkas, namaBerkas, simpanBerkas } from '../lib/backup-file'
 
@@ -102,6 +103,30 @@ function BackupFile({ state, pulihkan }) {
   )
 }
 
+function GantiPasswordLokal() {
+  const [lama, setLama] = useState(''), [baru, setBaru] = useState(''), [ulang, setUlang] = useState('')
+  const [p, setP] = useState(null), [busy, setBusy] = useState(false)
+  const kirim = async (e) => {
+    e.preventDefault(); setP(null)
+    if (baru !== ulang) return setP({ ok: false, teks: 'Password baru dan ulangannya tidak sama' })
+    setBusy(true)
+    try { await gantiLokal(lama, baru); setLama(''); setBaru(''); setUlang(''); setP({ ok: true, teks: 'Password diganti' }) }
+    catch (err) { setP({ ok: false, teks: err.message }) }
+    setBusy(false)
+  }
+  return (
+    <Panel title="Ganti password" sub="Password untuk membuka Duitku di HP ini. Minimal 6 karakter">
+      <form className="stack" onSubmit={kirim}>
+        <label>Password lama<input type="password" autoComplete="current-password" value={lama} onChange={(e) => setLama(e.target.value)} /></label>
+        <label>Password baru<input type="password" autoComplete="new-password" value={baru} onChange={(e) => setBaru(e.target.value)} /></label>
+        <label>Ulangi password baru<input type="password" autoComplete="new-password" value={ulang} onChange={(e) => setUlang(e.target.value)} /></label>
+        <Pesan p={p} />
+        <button className="btn primary" disabled={busy}>{busy ? 'Menyimpan…' : 'Ganti password'}</button>
+      </form>
+    </Panel>
+  )
+}
+
 export default function Profil({ akun }) {
   const { profil, simpanProfil, gantiPassword, sheets, onLogout, onBackup, cadang, native, state, pulihkanData } = akun
   const [nama, setNama] = useState(profil.nama || '')
@@ -152,6 +177,7 @@ export default function Profil({ akun }) {
             </form>
           ) : <p className="empty">Login dan password aktif setelah aplikasi terhubung ke Google Sheets.</p>}
         </Panel>}
+        {native && <GantiPasswordLokal />}
         {native && <BackupFile state={state} pulihkan={pulihkanData} />}
         {cadang && <BackupSheets c={cadang} />}
       </div>

@@ -5,6 +5,8 @@
  * Kalau skrip ini disalin dari aplikasi Duitku (tombol "Salin skrip"), kuncinya sudah terisi otomatis.
  * Kalau disalin dari tempat lain, ganti KUNCI_RAHASIA di bawah dengan kata rahasia panjang (minimal 16 huruf/angka).
  *
+ * Fungsi: menyimpan salinan data (Transaksi, Rekening, dst.) dan mengambil harga emas/kripto/saham.
+ *
  * 1) Deploy > Deployment baru > Aplikasi web: Jalankan sebagai "Saya", akses "Siapa saja".
  * 2) Tempel link /exec (dan kunci, kalau diganti manual) di aplikasi Duitku, menu Profil.
  */
@@ -35,6 +37,7 @@ function doPost(e) {
     const m = JSON.parse(mentah);
     if (!samaAman_(String(m.kunci || ''), KUNCI_RAHASIA)) return keluar_({ ok: false, error: 'Kunci salah' });
     if (m.aksi === 'tes') return keluar_({ ok: true });
+    if (m.aksi === 'harga') return keluar_(ambilHarga_(m.data));
     kunci = LockService.getScriptLock();
     kunci.waitLock(20000);
     if (m.aksi === 'baca') return keluar_({ ok: true, data: baca_() });
@@ -96,4 +99,102 @@ function baca_() {
     });
   });
   return hasil;
+}
+
+/* ---------- HARGA PASAR (emas, kripto, saham) ---------- */
+// daftar: [{sumber:'emas'|'kripto'|'saham', kode:'...'}]  ->  { 'emas:': {p: harga per unit (Rp), t: waktu}, ... }
+const CACHE_HARGA_DETIK = 15 * 60;
+function ambilJson_(url) {
+  const r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (Duitku)' } });
+  if (r.getResponseCode() !== 200) throw new Error('HTTP ' + r.getResponseCode());
+  return JSON.parse(r.getContentText());
+}
+function kursUsdIdr_() {
+  return Number(ambilJson_('https://open.er-api.com/v6/latest/USD').rates.IDR);
+}
+function hargaSatu_(sumber, kode) {
+  if (sumber === 'emas') {   // harga emas dunia (spot) -> Rupiah per gram
+    const usdPerOns = Number(ambilJson_('https://api.gold-api.com/price/XAU').price);
+    return Math.round(usdPerOns / 31.1034768 * kursUsdIdr_());
+  }
+  if (sumber === 'kripto') { // kode = id CoinGecko, mis. bitcoin
+    const j = ambilJson_('https://api.coingecko.com/api/v3/simple/price?ids=' + encodeURIComponent(kode.toLowerCase()) + '&vs_currencies=idr');
+    return Number(j[kode.toLowerCase()].idr);
+  }
+  if (sumber === 'saham') {  // kode = kode saham BEI, mis. BBCA
+    const j = ambilJson_('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(kode.toUpperCase()) + '.JK?range=1d&interval=1d');
+    return Number(j.chart.result[0].meta.regularMarketPrice);
+  }
+  if (sumber === 'emasid') { // kode = 'ANTAM|buyback' -> Rupiah per gram (toko Indonesia)
+    const p = hargaGaleri24_()[kode];
+    if (!(p > 0)) throw new Error('Harga tidak ada');
+    return p;
+  }
+  throw new Error('Sumber tidak dikenal');
+}
+/* Harga emas toko Indonesia dari galeri24.co.id/harga-emas (jual & buyback per gram, dari baris 1 gram) */
+const MEREK_G24 = ['GALERI 24', 'ANTAM', 'UBS'];
+// ubah HTML jadi satu aliran teks (tidak bergantung pada pemecahan baris/tag)
+function teksHalaman_(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ').trim();
+}
+function rapat_(t) { return String(t).toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+// Pecah halaman jadi bagian per judul: judul = teks tepat sebelum "Berat Harga Jual Harga Buyback"
+function bagianHarga_(teks) {
+  const re = /Harga\s+(.+?)\s+Berat\s+Harga\s+Jual\s+Harga\s+Buyback/gi, awal = [];
+  let m;
+  while ((m = re.exec(teks)) !== null) {
+    const nama = m[1].split(/Harga\s+/i).pop();           // ambil nama setelah kata "Harga" terakhir
+    awal.push({ nama: rapat_(nama), mulai: re.lastIndex, kepala: m.index });
+  }
+  const hasil = {};
+  awal.forEach(function (x, i) {
+    if (hasil[x.nama] === undefined) hasil[x.nama] = teks.slice(x.mulai, i + 1 < awal.length ? awal[i + 1].kepala : teks.length);
+  });
+  return hasil;
+}
+function hargaBaris1Gram_(isi) {
+  const m = /(?:^|\s)1(?:[.,]0+)?(?:\s*(?:gr|gram|g))?\s+Rp\s*([\d.]+)\s+Rp\s*([\d.]+)/i.exec(isi);
+  if (!m) return null;
+  return { jual: Number(m[1].replace(/\./g, '')) || 0, buyback: Number(m[2].replace(/\./g, '')) || 0 };
+}
+function hargaGaleri24_() {
+  const cache = CacheService.getScriptCache(), ada = cache.get('g24_all');
+  if (ada) return JSON.parse(ada);
+  const r = UrlFetchApp.fetch('https://galeri24.co.id/harga-emas', { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (Duitku)' } });
+  if (r.getResponseCode() !== 200) throw new Error('HTTP ' + r.getResponseCode());
+  const bagian = bagianHarga_(teksHalaman_(r.getContentText())), hasil = {};
+  MEREK_G24.forEach(function (m) {
+    const isi = bagian[rapat_(m)];
+    const h = isi ? hargaBaris1Gram_(isi) : null;
+    if (h) { if (h.jual > 0) hasil[m + '|jual'] = h.jual; if (h.buyback > 0) hasil[m + '|buyback'] = h.buyback; }
+  });
+  if (!Object.keys(hasil).length) throw new Error('Tabel harga tidak terbaca');
+  cache.put('g24_all', JSON.stringify(hasil), CACHE_HARGA_DETIK);
+  return hasil;
+}
+function ambilHarga_(daftar) {
+  if (!Array.isArray(daftar)) return { ok: false, error: 'Permintaan tidak valid' };
+  const cache = CacheService.getScriptCache(), hasil = {}, sudah = {};
+  daftar.slice(0, 20).forEach(function (d) {
+    const sumber = String(d && d.sumber || ''), kode = String(d && d.kode || '').trim();
+    if (['emas', 'emasid', 'kripto', 'saham'].indexOf(sumber) < 0) return;
+    if (sumber === 'emasid' && !/^(GALERI 24|ANTAM|UBS)\|(jual|buyback)$/.test(kode)) { hasil[sumber + ':' + kode] = { err: 'Pilihan tidak valid' }; return; }
+    if (sumber !== 'emas' && sumber !== 'emasid' && !/^[A-Za-z0-9.\-]{1,30}$/.test(kode)) { hasil[sumber + ':' + kode] = { err: 'Kode tidak valid' }; return; }
+    const kunci = sumber + ':' + (sumber === 'emas' ? '' : kode);
+    if (sudah[kunci]) return; sudah[kunci] = 1;
+    const ck = 'hrg_' + kunci, ada = cache.get(ck);
+    if (ada) { hasil[kunci] = JSON.parse(ada); return; }
+    try {
+      const p = hargaSatu_(sumber, kode);
+      if (!(p > 0)) throw new Error('Harga kosong');
+      const o = { p: p, t: new Date().toISOString() };
+      cache.put(ck, JSON.stringify(o), CACHE_HARGA_DETIK);
+      hasil[kunci] = o;
+    } catch (err) { hasil[kunci] = { err: 'Harga belum bisa diambil (' + String(err.message || err).slice(0, 60) + ')' }; }
+  });
+  return { ok: true, harga: hasil };
 }

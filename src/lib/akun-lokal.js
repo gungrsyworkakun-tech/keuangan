@@ -38,3 +38,11 @@ export async function cekAkun(user, password) {
 export function hapusSemua() {
   try { Object.keys(localStorage).filter((k) => k.startsWith('duitku')).forEach((k) => localStorage.removeItem(k)); sessionStorage.clear() } catch {}
 }
+
+export async function gantiPassword(lama, baru) {
+  const a = baca()
+  if (!a || !(await cekAkun(a.user, lama))) throw new Error('Password lama salah')
+  if (String(baru || '').length < 6) throw new Error('Password baru minimal 6 karakter')
+  const garam = crypto.getRandomValues(new Uint8Array(16))
+  localStorage.setItem(AKUN, JSON.stringify({ ...a, garam: b64(garam), hash: b64(await hash(baru, garam)), putaran: PUTARAN }))
+}

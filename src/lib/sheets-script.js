@@ -33,6 +33,7 @@ export function buatKlienScript({ ambil = () => bacaConfig(), fetcher = (...a) =
     buat: async () => 'script',
     tulis: async (_id, state) => { await kirim('tulis', keBaris(state)) },
     baca: async () => dariBaris((await kirim('baca')).data || {}),
+    harga: async (daftar) => (await kirim('harga', daftar)).harga || {},
   }
 }
 

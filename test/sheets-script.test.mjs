@@ -25,6 +25,9 @@ function jalankan(kodeAwal) {
     SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: (n) => lembar[n], insertSheet: (n) => (lembar[n] = buat()) }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (s) => ({ s, setMimeType() { return this } }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+    CacheService: { getScriptCache: () => ({ get: () => null, put() {} }) },
+    UrlFetchApp: { fetch: () => { throw new Error('offline') } },
+    Utilities: {},
     JSON, Date, Array, Object, Number, String, Math,
   })
   vm.runInContext(kodeAwal, ctx)
@@ -51,6 +54,12 @@ const balik = await klien(KUNCI).baca('script')
 assert.deepEqual(balik.transactions, state.transactions)
 assert.deepEqual(balik.accounts, state.accounts)
 assert.deepEqual(balik.budgets, state.budgets)
+
+// harga: jalur 'harga' bekerja dan hanya menerima kunci benar; sumber tak dikenal diabaikan, gagal ambil -> pesan ramah
+const h = await klien(KUNCI).harga([{ sumber: 'emas', kode: '' }, { sumber: 'saham', kode: 'BBCA' }, { sumber: 'ngawur', kode: 'x' }, { sumber: 'saham', kode: '../x' }])
+assert.match(h['emas:'].err, /belum bisa diambil/); assert.match(h['saham:BBCA'].err, /belum bisa diambil/)
+assert.equal(h['ngawur:x'], undefined); assert.equal(h['saham:../x'].err, 'Kode tidak valid')
+await assert.rejects(() => klien('kunci-salah-salah-1234').harga([]), /Kunci salah/)
 
 // skrip dengan kunci bawaan yang belum diganti menolak bekerja
 const belum = jalankan(asli)
@@ -90,4 +99,7 @@ assert.equal(JSON.stringify(simpan).includes('rahasia123'), false, 'password asl
 assert.equal(await al.cekAkun('budi', 'rahasia123'), true)
 assert.equal(await al.cekAkun('budi', 'salah-salah'), false)
 assert.equal(await al.cekAkun('orang', 'rahasia123'), false)
+await assert.rejects(() => al.gantiPassword('salah', 'baru-baru-1'), /lama salah/)
+await al.gantiPassword('rahasia123', 'baru-baru-1')
+assert.equal(await al.cekAkun('budi', 'rahasia123'), false); assert.equal(await al.cekAkun('budi', 'baru-baru-1'), true)
 console.log('uji akun lokal lulus')

@@ -4,6 +4,7 @@ import { BarChart, Donut } from '../components/charts'
 import { rupiah, hariIni } from '../lib/format'
 import { JENIS_INVESTASI } from '../lib/store'
 import { call, MODE_SHEETS, NATIVE } from '../lib/api'
+import { bacaConfig, buatKlienScript } from '../lib/sheets-script'
 import EditDialog from './edit-dialog'
 
 const SUMBER = [['', 'Isi nilai manual'], ['emasid', 'Emas toko Indonesia (Antam, Galeri 24, UBS)'], ['emas', 'Emas harga dunia (acuan)'], ['kripto', 'Kripto (kode CoinGecko)'], ['saham', 'Saham BEI (kode saham)']]
@@ -20,17 +21,23 @@ export default function Investasi({ state, dispatch }) {
   const [dPesan, setDPesan] = useState({ t: '', ok: false })
   const [harga, setHarga] = useState({})        // { 'emas:': {p, t} | {err} }
   const [muat, setMuat] = useState('idle')      // idle | loading | ok | error
+  const bisaHarga = MODE_SHEETS || (NATIVE && Boolean(bacaConfig()))
+  const klienHarga = useMemo(() => buatKlienScript(), [])
   const otomatis = useMemo(() => state.investments.filter((i) => i.sumber), [state.investments])
   const daftarKey = otomatis.map(kunci).join('|')
 
   const segarkan = useCallback(async () => {
-    if (!MODE_SHEETS || !otomatis.length) return
+    if (!bisaHarga || !otomatis.length) return
     setMuat('loading')
     try {
       const unik = [...new Map(otomatis.map((i) => [kunci(i), { sumber: i.sumber, kode: i.kode || '' }])).values()]
-      const r = await call('harga', { daftar: unik })
-      if (!r.ok) throw new Error(r.error)
-      setHarga(r.harga || {}); setMuat('ok')
+      if (NATIVE) setHarga(await klienHarga.harga(unik))
+      else {
+        const r = await call('harga', { daftar: unik })
+        if (!r.ok) throw new Error(r.error)
+        setHarga(r.harga || {})
+      }
+      setMuat('ok')
     } catch { setMuat('error') }
   }, [daftarKey])
   useEffect(() => { segarkan() }, [segarkan])
@@ -92,8 +99,8 @@ export default function Investasi({ state, dispatch }) {
       </section>
       {otomatis.length > 0 && (
         <div className="hargabar">
-          <span>{muat === 'loading' ? 'Mengambil harga terbaru…' : muat === 'ok' ? `Harga pasar diperbarui ${waktuLabel(waktuTerbaru)}` : muat === 'error' ? 'Harga belum bisa diambil, memakai nilai terakhir' : MODE_SHEETS ? '' : NATIVE ? 'Perbarui nilai investasi sendiri lewat tombol Edit' : 'Harga otomatis aktif setelah terhubung ke Google Sheets'}</span>
-          {MODE_SHEETS && <button className="btn sm" onClick={segarkan} disabled={muat === 'loading'}>Perbarui harga</button>}
+          <span>{muat === 'loading' ? 'Mengambil harga terbaru…' : muat === 'ok' ? `Harga pasar diperbarui ${waktuLabel(waktuTerbaru)}` : muat === 'error' ? 'Harga belum bisa diambil, memakai nilai terakhir' : bisaHarga ? '' : NATIVE ? 'Harga otomatis aktif setelah Sheet dihubungkan (menu Profil). Sebelum itu, ubah nilainya sendiri lewat tombol Edit' : 'Harga otomatis aktif setelah terhubung ke Google Sheets'}</span>
+          {bisaHarga && <button className="btn sm" onClick={segarkan} disabled={muat === 'loading'}>Perbarui harga</button>}
         </div>
       )}
       <div className="grid-main">
