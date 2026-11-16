@@ -103,3 +103,13 @@ await assert.rejects(() => al.gantiPassword('salah', 'baru-baru-1'), /lama salah
 await al.gantiPassword('rahasia123', 'baru-baru-1')
 assert.equal(await al.cekAkun('budi', 'rahasia123'), false); assert.equal(await al.cekAkun('budi', 'baru-baru-1'), true)
 console.log('uji akun lokal lulus')
+
+// harga segar: permintaan dari tombol "Perbarui harga" membawa segar:true, permintaan biasa tidak
+{
+  const bodies = []
+  const k = buatKlienScript({ ambil: () => ({ url: 'https://script.google.com/macros/s/abc/exec', kunci: 'x'.repeat(20) }), fetcher: async (_u, o) => { bodies.push(JSON.parse(o.body)); return { json: async () => ({ ok: true, harga: {} }) } } })
+  await k.harga([{ sumber: 'emas', kode: '' }])
+  await k.harga([{ sumber: 'emas', kode: '' }], true)
+  assert.equal(bodies[0].segar, undefined)
+  assert.equal(bodies[1].segar, true)
+}

@@ -6,7 +6,7 @@ import EditDialog from './edit-dialog'
 
 export default function Goal({ state, dispatch }) {
   const [f, setF] = useState({ name: '', target: '', deadline: '' })
-  const [fund, setFund] = useState({}), [ed, setEd] = useState(null)
+  const [fund, setFund] = useState({}), [ambil, setAmbil] = useState({}), [err, setErr] = useState({}), [ed, setEd] = useState(null)
   const add = (e) => {
     e.preventDefault()
     if (!f.name.trim() || !(Number(f.target) > 0)) return
@@ -36,6 +36,18 @@ export default function Goal({ state, dispatch }) {
                 <input type="number" inputMode="numeric" placeholder="Tambah tabungan" value={fund[g.id] || ''} onChange={(e) => setFund({ ...fund, [g.id]: e.target.value })} aria-label={'Tambah dana ' + g.name} />
                 <button className="btn">Setor</button>
               </form>
+              <form className="inline" onSubmit={(e) => {
+                e.preventDefault()
+                const n = Number(ambil[g.id])
+                if (!(n > 0)) return
+                if (n > g.saved) return setErr({ ...err, [g.id]: 'Melebihi yang terkumpul (' + rupiah(g.saved) + ')' })
+                dispatch({ type: 'fundGoal', id: g.id, amount: -n })
+                setAmbil({ ...ambil, [g.id]: '' }); setErr({ ...err, [g.id]: '' })
+              }}>
+                <input type="number" inputMode="numeric" placeholder="Dipakai / diambil" value={ambil[g.id] || ''} onChange={(e) => setAmbil({ ...ambil, [g.id]: e.target.value })} aria-label={'Pakai dana ' + g.name} />
+                <button className="btn">Pakai</button>
+              </form>
+              {err[g.id] && <em role="alert">{err[g.id]}</em>}
             </Panel>
           )
         })}

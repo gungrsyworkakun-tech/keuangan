@@ -26,12 +26,12 @@ export default function Investasi({ state, dispatch }) {
   const otomatis = useMemo(() => state.investments.filter((i) => i.sumber), [state.investments])
   const daftarKey = otomatis.map(kunci).join('|')
 
-  const segarkan = useCallback(async () => {
+  const segarkan = useCallback(async (segar = false) => {
     if (!bisaHarga || !otomatis.length) return
     setMuat('loading')
     try {
       const unik = [...new Map(otomatis.map((i) => [kunci(i), { sumber: i.sumber, kode: i.kode || '' }])).values()]
-      if (NATIVE) setHarga(await klienHarga.harga(unik))
+      if (NATIVE) setHarga(await klienHarga.harga(unik, segar === true))
       else {
         const r = await call('harga', { daftar: unik })
         if (!r.ok) throw new Error(r.error)
@@ -100,7 +100,7 @@ export default function Investasi({ state, dispatch }) {
       {otomatis.length > 0 && (
         <div className="hargabar">
           <span>{muat === 'loading' ? 'Mengambil harga terbaru…' : muat === 'ok' ? `Harga pasar diperbarui ${waktuLabel(waktuTerbaru)}` : muat === 'error' ? 'Harga belum bisa diambil, memakai nilai terakhir' : bisaHarga ? '' : NATIVE ? 'Harga otomatis aktif setelah Sheet dihubungkan (menu Profil). Sebelum itu, ubah nilainya sendiri lewat tombol Edit' : 'Harga otomatis aktif setelah terhubung ke Google Sheets'}</span>
-          {bisaHarga && <button className="btn sm" onClick={segarkan} disabled={muat === 'loading'}>Perbarui harga</button>}
+          {bisaHarga && <button className="btn sm" onClick={() => segarkan(true)} disabled={muat === 'loading'}>Perbarui harga</button>}
         </div>
       )}
       <div className="grid-main">

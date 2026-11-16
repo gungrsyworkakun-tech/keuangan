@@ -37,7 +37,7 @@ function doPost(e) {
     const m = JSON.parse(mentah);
     if (!samaAman_(String(m.kunci || ''), KUNCI_RAHASIA)) return keluar_({ ok: false, error: 'Kunci salah' });
     if (m.aksi === 'tes') return keluar_({ ok: true });
-    if (m.aksi === 'harga') return keluar_(ambilHarga_(m.data));
+    if (m.aksi === 'harga') return keluar_(ambilHarga_(m.data, m.segar === true));
     kunci = LockService.getScriptLock();
     kunci.waitLock(20000);
     if (m.aksi === 'baca') return keluar_({ ok: true, data: baca_() });
@@ -176,9 +176,11 @@ function hargaGaleri24_() {
   cache.put('g24_all', JSON.stringify(hasil), CACHE_HARGA_DETIK);
   return hasil;
 }
-function ambilHarga_(daftar) {
+// segar = true: lewati simpanan 15 menit (dipakai tombol "Perbarui harga")
+function ambilHarga_(daftar, segar) {
   if (!Array.isArray(daftar)) return { ok: false, error: 'Permintaan tidak valid' };
   const cache = CacheService.getScriptCache(), hasil = {}, sudah = {};
+  if (segar) cache.remove('g24_all');   // tabel toko emas ikut diambil ulang (sekali per permintaan)
   daftar.slice(0, 20).forEach(function (d) {
     const sumber = String(d && d.sumber || ''), kode = String(d && d.kode || '').trim();
     if (['emas', 'emasid', 'kripto', 'saham'].indexOf(sumber) < 0) return;
@@ -186,7 +188,7 @@ function ambilHarga_(daftar) {
     if (sumber !== 'emas' && sumber !== 'emasid' && !/^[A-Za-z0-9.\-]{1,30}$/.test(kode)) { hasil[sumber + ':' + kode] = { err: 'Kode tidak valid' }; return; }
     const kunci = sumber + ':' + (sumber === 'emas' ? '' : kode);
     if (sudah[kunci]) return; sudah[kunci] = 1;
-    const ck = 'hrg_' + kunci, ada = cache.get(ck);
+    const ck = 'hrg_' + kunci, ada = segar ? null : cache.get(ck);
     if (ada) { hasil[kunci] = JSON.parse(ada); return; }
     try {
       const p = hargaSatu_(sumber, kode);

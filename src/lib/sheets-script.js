@@ -16,12 +16,12 @@ export function simpanConfig(c, simpan = localStorage) {
 
 // ambil(): { url, kunci }. fetcher boleh diganti saat uji.
 export function buatKlienScript({ ambil = () => bacaConfig(), fetcher = (...a) => fetch(...a) } = {}) {
-  async function kirim(aksi, data) {
+  async function kirim(aksi, data, tambahan = {}) {
     const c = ambil()
     if (!c) throw new Error('Link dan kunci Sheet belum diisi')
     let res
     try {
-      res = await fetcher(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ kunci: c.kunci, aksi, data }), redirect: 'follow', credentials: 'omit' })
+      res = await fetcher(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ kunci: c.kunci, aksi, data, ...tambahan }), redirect: 'follow', credentials: 'omit' })
     } catch { throw new Error('Tidak bisa terhubung. Periksa internet dan link-nya') }
     let j
     try { j = await res.json() } catch { throw new Error('Link tidak benar, atau skrip belum di-deploy dengan akses "Siapa saja"') }
@@ -33,7 +33,7 @@ export function buatKlienScript({ ambil = () => bacaConfig(), fetcher = (...a) =
     buat: async () => 'script',
     tulis: async (_id, state) => { await kirim('tulis', keBaris(state)) },
     baca: async () => dariBaris((await kirim('baca')).data || {}),
-    harga: async (daftar) => (await kirim('harga', daftar)).harga || {},
+    harga: async (daftar, segar = false) => (await kirim('harga', daftar, segar ? { segar: true } : {})).harga || {},
   }
 }
 
