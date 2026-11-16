@@ -3,7 +3,7 @@ import { Panel, Empty } from './ui'
 import { BarChart, Donut } from '../components/charts'
 import { rupiah, hariIni } from '../lib/format'
 import { JENIS_INVESTASI } from '../lib/store'
-import { call, MODE_SHEETS } from '../lib/api'
+import { call, MODE_SHEETS, NATIVE } from '../lib/api'
 import EditDialog from './edit-dialog'
 
 const SUMBER = [['', 'Isi nilai manual'], ['emasid', 'Emas toko Indonesia (Antam, Galeri 24, UBS)'], ['emas', 'Emas harga dunia (acuan)'], ['kripto', 'Kripto (kode CoinGecko)'], ['saham', 'Saham BEI (kode saham)']]
@@ -92,7 +92,7 @@ export default function Investasi({ state, dispatch }) {
       </section>
       {otomatis.length > 0 && (
         <div className="hargabar">
-          <span>{muat === 'loading' ? 'Mengambil harga terbaru…' : muat === 'ok' ? `Harga pasar diperbarui ${waktuLabel(waktuTerbaru)}` : muat === 'error' ? 'Harga belum bisa diambil, memakai nilai terakhir' : MODE_SHEETS ? '' : 'Harga otomatis aktif setelah terhubung ke Google Sheets'}</span>
+          <span>{muat === 'loading' ? 'Mengambil harga terbaru…' : muat === 'ok' ? `Harga pasar diperbarui ${waktuLabel(waktuTerbaru)}` : muat === 'error' ? 'Harga belum bisa diambil, memakai nilai terakhir' : MODE_SHEETS ? '' : NATIVE ? 'Perbarui nilai investasi sendiri lewat tombol Edit' : 'Harga otomatis aktif setelah terhubung ke Google Sheets'}</span>
           {MODE_SHEETS && <button className="btn sm" onClick={segarkan} disabled={muat === 'loading'}>Perbarui harga</button>}
         </div>
       )}
