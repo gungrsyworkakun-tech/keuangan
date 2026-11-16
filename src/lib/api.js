@@ -1,5 +1,7 @@
-// URL web app Apps Script. Kosong = mode lokal (data hanya di browser, untuk coba-coba).
-export const API_URL = import.meta.env.VITE_API_URL || 'https://cara-kinerja-ngr.my.id/duitku/api.php'
+// Aplikasi HP (APK): data utama di perangkat, tanpa login dan tanpa server. Cadangan ke Google Sheets milik pengguna sendiri.
+export const NATIVE = import.meta.env.VITE_APP_MODE === 'native'
+// URL web app Apps Script. Kosong = mode lokal (data hanya di perangkat).
+export const API_URL = NATIVE ? '' : (import.meta.env.VITE_API_URL || 'https://cara-kinerja-ngr.my.id/duitku/api.php')
 export const MODE_SHEETS = Boolean(API_URL)
 
 const KEY = 'duitku-token'

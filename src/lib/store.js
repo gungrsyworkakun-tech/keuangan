@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { uid } from './format'
-import { MODE_SHEETS, call, bacaCache, tulisCache, bacaProfil, tulisProfil } from './api'
+import { MODE_SHEETS, NATIVE, call, bacaCache, tulisCache, bacaProfil, tulisProfil } from './api'
 
 export const KATEGORI_KELUAR = ['Makan & minum', 'Transport', 'Tagihan', 'Belanja', 'Hiburan', 'Kesehatan', 'Lainnya']
 export const KATEGORI_MASUK = ['Gaji', 'Bonus', 'Usaha', 'Lainnya']
@@ -215,8 +215,9 @@ export function useStore(onAuthError) {
     if (MODE_SHEETS) return adaCache ? { ...empty, ...cache.state } : empty
     try {
       const raw = localStorage.getItem('duitku-state')
-      return raw ? { ...initial, ...JSON.parse(raw) } : initial
-    } catch { return initial }
+      const awal = NATIVE ? empty : initial // aplikasi HP: pengguna baru mulai dari kosong, bukan data contoh
+      return raw ? { ...awal, ...JSON.parse(raw) } : awal
+    } catch { return NATIVE ? empty : initial }
   })
   const [profil, setProfil] = useState(() => bacaProfil() || { nama: '', username: '' })
   const [status, setStatus] = useState(MODE_SHEETS && !adaCache ? 'loading' : 'ready') // loading | ready | error

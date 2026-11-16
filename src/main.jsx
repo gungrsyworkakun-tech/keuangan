@@ -11,6 +11,6 @@ if (window.__progres) window.__progres.selesai()
 createRoot(document.getElementById('root')).render(<App />)
 
 // Simpan berkas aplikasi di perangkat supaya terbuka cepat (hanya di versi jadi, bukan saat pengembangan)
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+if (import.meta.env.PROD && import.meta.env.VITE_APP_MODE !== 'native' && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}) })
 }

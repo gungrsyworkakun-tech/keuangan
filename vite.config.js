@@ -12,7 +12,7 @@ const csp = {
     html.replace(
       '<head>',
       `<head>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com ${asalApi}; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://sheets.googleapis.com https://www.googleapis.com ${asalApi}; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <meta name="referrer" content="no-referrer" />`
     ),
 }
