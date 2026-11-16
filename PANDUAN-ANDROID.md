@@ -1,9 +1,11 @@
 # Duitku untuk Android — panduan lengkap
 
-Aplikasi menyimpan data di HP. Backup ke Google Sheets lewat tombol "Masuk dengan Google" di menu Profil.
+Aplikasi menyimpan data di HP. Backup lewat file: menu Profil → **Simpan backup** (kirim ke Drive/WhatsApp) dan **Pulihkan dari file**. Backup otomatis ke Google Sheets bersifat **opsional** dan baru muncul kalau Bagian 1–2 di bawah dikerjakan.
 APK/AAB dibuat otomatis oleh GitHub (laptopmu tidak perlu memasang Android Studio).
 
-## Bagian 1 — Siapkan Google (sekali saja, gratis)
+## Bagian 1 — (Opsional) Siapkan Google untuk backup otomatis ke Sheets
+Lewati bagian 1 dan 2 kalau cukup memakai backup file.
+
 1. Buka https://console.cloud.google.com lalu buat project baru, misalnya "Duitku".
 2. Menu **APIs & Services → Library**: aktifkan **Google Sheets API** dan **Google Drive API**.
 3. **OAuth consent screen**: pilih External, isi nama aplikasi "Duitku", email, dan alamat kebijakan privasi (lihat Bagian 4). Tambahkan izin `.../auth/drive.file`. Izin ini tidak termasuk izin sensitif.
@@ -12,7 +14,7 @@ APK/AAB dibuat otomatis oleh GitHub (laptopmu tidak perlu memasang Android Studi
    - Jenis **Web application** → salin Client ID-nya. Ini yang dipakai aplikasi.
    - Jenis **Android** → isi package name `app.duitku.keuangan` dan SHA-1 (Bagian 3). Buat satu untuk tiap SHA-1 (debug dan Play).
 
-## Bagian 2 — Pasang di GitHub
+## Bagian 2 — Pasang di GitHub (variabel Google hanya untuk Bagian 1)
 Di repo: **Settings → Secrets and variables → Actions**
 - Tab **Variables**: `GOOGLE_WEB_CLIENT_ID` = Client ID jenis Web tadi.
 - Tab **Secrets** (untuk versi Play Store): `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.

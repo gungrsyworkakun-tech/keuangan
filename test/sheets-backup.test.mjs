@@ -75,3 +75,19 @@ assert.ok(!gagalSekali)
 // error Google dilaporkan jelas
 await assert.rejects(buatKlien({ ambilToken: async () => 't', fetcher: async () => respon(403, { error: { message: 'API belum diaktifkan' } }) }).cari(), /API belum diaktifkan/)
 console.log('SEMUA UJI LULUS (' + panggilan.length + ' panggilan Google tiruan)')
+
+// --- backup ke file ---
+{
+  const { buatBerkas, bacaBerkas } = await import('../src/lib/backup-file.js')
+  const asal = { accounts: [{ id: 'a1', name: 'BCA', balance: 1000 }], transactions: [{ id: 't1', date: '2026-11-01', desc: '=HYPERLINK("x")', amount: 500, type: 'out', category: 'Makan', accountId: 'a1' }], investments: [], goals: [], budgets: [{ category: 'Makan', limit: 900 }], savings: [] }
+  const r = bacaBerkas(buatBerkas(asal))
+  assert.deepEqual(r.state.transactions, asal.transactions)
+  assert.equal(r.jumlah, 3)
+  assert.throws(() => bacaBerkas('bukan json'), /bukan file backup/)
+  assert.throws(() => bacaBerkas('{"app":"lain","data":{}}'), /bukan file backup/)
+  const jahat = bacaBerkas(JSON.stringify({ app: 'duitku', data: { transactions: [{ id: 't9', amount: '12abc', desc: 'x', evil: 1 }, { desc: 'tanpa id' }], __proto__: { x: 1 } } }))
+  assert.equal(jahat.state.transactions.length, 1)
+  assert.equal('evil' in jahat.state.transactions[0], false)
+  assert.equal(jahat.state.transactions[0].amount, 0)
+  console.log('uji backup file lulus')
+}

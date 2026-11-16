@@ -2,6 +2,7 @@ import { Component, Suspense, lazy, useEffect, useState } from 'react'
 import { useStore } from './lib/store'
 import { MODE_SHEETS, NATIVE, call, getToken, setToken, hapusCache } from './lib/api'
 import { useBackup } from './lib/use-backup'
+import { GOOGLE_ADA } from './lib/google'
 import FinanceShell, { MENU } from './layouts/finance-shell.layout.jsx'
 import TransactionDialog from './pages/transaction-dialog.jsx'
 import Login from './pages/login.page.jsx'
@@ -51,7 +52,7 @@ export default function App() {
 
 function Main({ onKeluar }) {
   const [state, dispatch, meta] = useStore(onKeluar)
-  const cadang = useBackup(state, dispatch, NATIVE)
+  const cadang = useBackup(state, dispatch, NATIVE && GOOGLE_ADA)
   const [route, setRoute] = useState(currentRoute())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [tipeAwal, setTipeAwal] = useState('out')
@@ -89,18 +90,18 @@ function Main({ onKeluar }) {
   const title = MENU.find((m) => m.id === route).label
   const terkunci = MODE_SHEETS && !meta.segar
   const teksCadang = { mati: 'Tersimpan di HP · backup Sheets belum aktif', menghubungkan: 'Menghubungkan ke Google…', pilih: 'Pilih data yang dipakai (menu Profil)', siap: 'Tersimpan di HP · backup Sheets aktif', menyimpan: 'Mencadangkan ke Sheets…', gagal: 'Backup Sheets gagal' + (cadang.pesan ? ': ' + cadang.pesan : '') }
-  const statusText = NATIVE ? teksCadang[cadang.status]
+  const statusText = NATIVE ? (GOOGLE_ADA ? teksCadang[cadang.status] : 'Tersimpan di HP')
     : !MODE_SHEETS ? 'Mode lokal'
     : terkunci ? (meta.pesan ? meta.pesan + ' · baca saja' : 'Menyinkronkan…')
     : meta.saveStatus === 'saving' ? 'Menyimpan…'
     : meta.saveStatus === 'error' ? 'Gagal menyimpan: ' + meta.pesan
     : 'Tersimpan di Sheets'
-  const akun = { cadang: NATIVE ? cadang : null, profil: meta.profil, simpanProfil: meta.simpanProfil, gantiPassword: meta.gantiPassword, sheets: MODE_SHEETS, onLogout: logout, onBackup: backup }
+  const akun = { native: NATIVE, cadang: NATIVE && GOOGLE_ADA ? cadang : null, state, pulihkanData: (st) => dispatch({ type: 'replace', state: st }), profil: meta.profil, simpanProfil: meta.simpanProfil, gantiPassword: meta.gantiPassword, sheets: MODE_SHEETS, onLogout: logout, onBackup: backup }
 
   return (
     <FinanceShell route={route} title={title} nama={meta.profil.nama} username={meta.profil.username}
       onAdd={() => bukaCatat('out')} locked={terkunci}
-      saveStatus={NATIVE ? (cadang.status === 'gagal' ? 'error' : cadang.status === 'menyimpan' || cadang.status === 'menghubungkan' ? 'saving' : 'saved') : terkunci ? (meta.pesan ? 'error' : 'saving') : meta.saveStatus} statusText={statusText} info={info}
+      saveStatus={NATIVE ? (!GOOGLE_ADA ? 'saved' : cadang.status === 'gagal' ? 'error' : cadang.status === 'menyimpan' || cadang.status === 'menghubungkan' ? 'saving' : 'saved') : terkunci ? (meta.pesan ? 'error' : 'saving') : meta.saveStatus} statusText={statusText} info={info}
       onRetry={NATIVE ? cadang.cadangkanSekarang : terkunci ? meta.muat : meta.simpan}
       onLogout={MODE_SHEETS ? logout : null} onBackup={MODE_SHEETS ? backup : null}>
       {meta.status === 'loading' ? <><Progres {...prog} /><Skeleton /></>

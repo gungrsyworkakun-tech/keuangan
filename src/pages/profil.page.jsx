@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Panel } from './ui'
 import { I } from '../components/icons'
 import { inisial } from '../lib/format'
+import { buatBerkas, bacaBerkas, namaBerkas, simpanBerkas } from '../lib/backup-file'
 
 function Pesan({ p }) {
   if (!p) return null
@@ -46,8 +47,40 @@ function BackupSheets({ c }) {
   )
 }
 
+function BackupFile({ state, pulihkan }) {
+  const [pesan, setPesan] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const simpan = async () => {
+    setBusy(true); setPesan(null)
+    try { const r = await simpanBerkas(buatBerkas(state), namaBerkas()); setPesan({ ok: true, teks: r === 'dibagikan' ? 'Pilih tujuan penyimpanan (Drive, WhatsApp, Files, dll).' : 'File backup diunduh.' }) }
+    catch (e) { if (!/cancel|dismiss/i.test(String(e && e.message))) setPesan({ ok: false, teks: 'Gagal menyimpan backup: ' + ((e && e.message) || 'coba lagi') }) }
+    setBusy(false)
+  }
+  const pilih = async (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ''
+    if (!f) return
+    setPesan(null)
+    try {
+      const r = bacaBerkas(await f.text())
+      if (window.confirm('File ini berisi ' + r.jumlah + ' catatan. Data di HP ini akan diganti. Lanjutkan?')) { pulihkan(r.state); setPesan({ ok: true, teks: 'Data berhasil dipulihkan (' + r.jumlah + ' catatan).' }) }
+    } catch (err) { setPesan({ ok: false, teks: err.message }) }
+  }
+  return (
+    <Panel title="Backup ke file" sub="Data utama ada di HP ini. Simpan salinannya ke tempat lain supaya aman">
+      <div className="stack">
+        <p className="hint">Tekan <b>Simpan backup</b>, lalu pilih tujuan (Google Drive, WhatsApp ke dirimu sendiri, dll). Kalau ganti HP atau data hilang, tekan <b>Pulihkan dari file</b> dan pilih file itu. Lakukan secara rutin, misalnya seminggu sekali.</p>
+        <Pesan p={pesan} />
+        <div className="actions-row">
+          <button className="btn primary" onClick={simpan} disabled={busy}>{busy ? 'Menyiapkan…' : 'Simpan backup'}</button>
+          <label className="btn" style={{ cursor: 'pointer' }}>Pulihkan dari file<input type="file" accept=".json,application/json" onChange={pilih} style={{ display: 'none' }} /></label>
+        </div>
+      </div>
+    </Panel>
+  )
+}
+
 export default function Profil({ akun }) {
-  const { profil, simpanProfil, gantiPassword, sheets, onLogout, onBackup, cadang } = akun
+  const { profil, simpanProfil, gantiPassword, sheets, onLogout, onBackup, cadang, native, state, pulihkanData } = akun
   const [nama, setNama] = useState(profil.nama || '')
   const [pn, setPn] = useState(null), [busyN, setBusyN] = useState(false)
   const [lama, setLama] = useState(''), [baru, setBaru] = useState(''), [ulang, setUlang] = useState('')
@@ -85,7 +118,7 @@ export default function Profil({ akun }) {
             <button className="btn primary" disabled={busyN}>{busyN ? 'Menyimpan…' : 'Simpan profil'}</button>
           </form>
         </Panel>
-        {!cadang && <Panel title="Ganti password" sub="Minimal 8 karakter">
+        {!native && <Panel title="Ganti password" sub="Minimal 8 karakter">
           {sheets ? (
             <form className="stack" onSubmit={kirimPass}>
               <label>Password lama<input type="password" autoComplete="current-password" value={lama} onChange={(e) => setLama(e.target.value)} /></label>
@@ -96,9 +129,10 @@ export default function Profil({ akun }) {
             </form>
           ) : <p className="empty">Login dan password aktif setelah aplikasi terhubung ke Google Sheets.</p>}
         </Panel>}
+        {native && <BackupFile state={state} pulihkan={pulihkanData} />}
         {cadang && <BackupSheets c={cadang} />}
       </div>
-      {!cadang && <Panel title="Pasang di HP" sub="Buka Duitku dari layar utama, tanpa mengetik alamat">
+      {!native && <Panel title="Pasang di HP" sub="Buka Duitku dari layar utama, tanpa mengetik alamat">
         <details className="pasang" open>
           <summary>Android (Chrome)</summary>
           <ol><li>Buka alamat Duitku di Chrome lalu login.</li><li>Ketuk menu <b>⋮</b> → <b>Instal aplikasi</b> (atau <b>Tambahkan ke layar utama</b>).</li><li>Tekan lama ikon <b>Duitku</b> di layar utama untuk pintasan <b>Catat pengeluaran</b> dan <b>Catat pemasukan</b>.</li></ol>
