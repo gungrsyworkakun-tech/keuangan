@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Panel, Progress, Empty } from './ui'
 import { rupiah, bulanKey, bulanLabel, tanggal } from '../lib/format'
-import { adalahTransfer, posDari, adalahBulan } from '../lib/store'
+import { adalahTransfer, posDari, adalahBulan, tipeAnggaran } from '../lib/store'
 
 const geser = (key, n) => { const [y, m] = key.split('-').map(Number); const i = y * 12 + m - 1 + n; return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}` }
 const bulat = (n) => Math.round(n / 10000) * 10000
@@ -20,7 +20,7 @@ export default function Rekap({ state, dispatch }) {
   const kini = perKat(key), lalu = perKat(geser(key, -1))
   const daftar = Object.entries(kini).sort((a, b) => b[1] - a[1])
   const maks = daftar[0]?.[1] || 0
-  const batas = (c) => state.budgets.find((b) => b.category === c)?.limit || 0
+  const batas = (c) => state.budgets.find((b) => b.category === c && tipeAnggaran(b) === 'out')?.limit || 0
   const ditabung = (state.savings || []).filter((x) => adalahBulan(x) && x.amount > 0 && x.month === key).reduce((a, x) => a + x.amount, 0)
   const terbesar = tx.filter((t) => bulanKey(t.date) === key && t.type === 'out').sort((a, b) => b.amount - a.amount).slice(0, 5)
 

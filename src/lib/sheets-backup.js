@@ -8,11 +8,11 @@ export const TABEL = {
   accounts: ['Rekening', ['id', 'name', 'balance', 'jenis']],
   investments: ['Investasi', ['id', 'name', 'type', 'invested', 'value', 'sumber', 'kode', 'qty']],
   goals: ['Goal', ['id', 'name', 'target', 'saved', 'deadline']],
-  budgets: ['Anggaran', ['category', 'limit']],
+  budgets: ['Anggaran', ['category', 'limit', 'tipe']],
   savings: ['Tabungan', ['id', 'month', 'amount', 'note', 'pos']],
 }
 const ANGKA = new Set(['amount', 'balance', 'invested', 'value', 'target', 'saved', 'limit', 'qty'])
-const PILIHAN = new Set(['jenis', 'sumber', 'kode', 'pos', 'qty'])
+const PILIHAN = new Set(['jenis', 'sumber', 'kode', 'pos', 'qty', 'tipe'])
 const TAB_INFO = 'Info'
 const KUNCI = Object.keys(TABEL)
 const MAKS_BARIS = 5000

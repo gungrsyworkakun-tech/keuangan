@@ -48,3 +48,13 @@ Butuh Apple Developer (sekitar $99/tahun) dan Mac untuk build (bisa runner Mac d
 
 ## Yang belum diuji
 Login Google dan backup nyata belum dicoba di HP/emulator. Logika backup sudah diuji dengan Google tiruan, dan tampilan sudah dicek di browser. Uji pertama di HP sungguhan sebelum diunggah ke Play Store.
+
+## Memperbarui skrip Sheet (kalau ada versi skrip baru)
+
+Versi aplikasi tertentu butuh skrip Sheet yang lebih baru (contoh: target pemasukan di Anggaran). Link dan kunci **tidak berubah**, jadi kamu tidak perlu menyambung ulang.
+
+1. Di aplikasi: **Profil** > **Cadangan ke Google Sheet** > **Salin skrip**. Skrip yang tersalin sudah berisi kuncimu.
+2. Buka Sheet cadanganmu > **Ekstensi** > **Apps Script**. Hapus semua isi `Code.gs` lalu tempel skrip baru, kemudian **Simpan**.
+3. **Terapkan** > **Kelola deployment** > ikon pensil > pada **Versi** pilih **Versi baru** > **Terapkan**.
+
+Kalau lupa melakukannya, aplikasi akan menolak mencadangkan target pemasukan dan menampilkan pesan "Skrip di Sheet kamu masih versi lama", jadi data Sheet tidak rusak.

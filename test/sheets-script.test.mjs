@@ -47,7 +47,7 @@ for (const x of ['https://evil.com/macros/s/abc/exec', 'http://script.google.com
 assert.equal(await klien(KUNCI).cari(), 'script')
 await assert.rejects(() => klien('kunci-salah-salah-1234').cari(), /Kunci salah/)
 
-const state = { accounts: [{ id: 'a1', name: 'BCA', balance: 1500000, jenis: 'bank' }], transactions: [{ id: 't1', date: '2026-11-01', desc: '=HYPERLINK("http://x","klik")', amount: 25000, type: 'out', category: 'Makan', accountId: 'a1' }], investments: [], goals: [], budgets: [{ category: 'Makan', limit: 900000 }], savings: [] }
+const state = { accounts: [{ id: 'a1', name: 'BCA', balance: 1500000, jenis: 'bank' }], transactions: [{ id: 't1', date: '2026-11-01', desc: '=HYPERLINK("http://x","klik")', amount: 25000, type: 'out', category: 'Makan', accountId: 'a1' }], investments: [], goals: [], budgets: [{ category: 'Makan', limit: 900000 }, { category: 'Gaji', limit: 5000000, tipe: 'in' }], savings: [{ id: 's1', month: 'otomatis', amount: 500000, note: '2026-01|2026-11|BCA ATM', pos: 'darurat' }] }
 await klien(KUNCI).tulis('script', state)
 assert.deepEqual(rumus, [], 'isi yang diawali = tidak boleh jadi rumus')
 const balik = await klien(KUNCI).baca('script')
@@ -60,6 +60,15 @@ const h = await klien(KUNCI).harga([{ sumber: 'emas', kode: '' }, { sumber: 'sah
 assert.match(h['emas:'].err, /belum bisa diambil/); assert.match(h['saham:BBCA'].err, /belum bisa diambil/)
 assert.equal(h['ngawur:x'], undefined); assert.equal(h['saham:../x'].err, 'Kode tidak valid')
 await assert.rejects(() => klien('kunci-salah-salah-1234').harga([]), /Kunci salah/)
+
+// skrip lama (tanpa 'versi') tidak boleh menimpa Sheet bila ada target pemasukan
+{
+  const lama = jalankan(asli.replace("'GANTI-INI-DENGAN-KATA-RAHASIA-PANJANG'", `'${KUNCI}'`).replace('{ ok: true, versi: VERSI }', '{ ok: true }'))
+  const k = buatKlienScript({ ambil: () => ({ url: URL_OK, kunci: KUNCI }), fetcher: lama.fetcher })
+  await k.cari()
+  await assert.rejects(() => k.tulis('script', state), /versi lama/)
+  await k.tulis('script', { ...state, budgets: [{ category: 'Makan', limit: 900000 }] }) // tanpa pemasukan tetap boleh
+}
 
 // skrip dengan kunci bawaan yang belum diganti menolak bekerja
 const belum = jalankan(asli)

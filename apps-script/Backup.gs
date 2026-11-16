@@ -17,10 +17,11 @@ const TABEL = {
   Rekening:  ['id', 'name', 'balance', 'jenis'],
   Investasi: ['id', 'name', 'type', 'invested', 'value', 'sumber', 'kode', 'qty'],
   Goal:      ['id', 'name', 'target', 'saved', 'deadline'],
-  Anggaran:  ['category', 'limit'],
+  Anggaran:  ['category', 'limit', 'tipe'],
   Tabungan:  ['id', 'month', 'amount', 'note', 'pos'],
 };
 const KOLOM_ANGKA = { amount: 1, balance: 1, invested: 1, value: 1, target: 1, saved: 1, limit: 1, qty: 1 };
+const VERSI = 2; // 2 = Anggaran punya kolom 'tipe' (pemasukan/pengeluaran)
 const MAKS_BARIS = 5000;
 const MAKS_BYTE = 2000000;
 
@@ -36,7 +37,7 @@ function doPost(e) {
     if (mentah.length > MAKS_BYTE) return keluar_({ ok: false, error: 'Data terlalu besar' });
     const m = JSON.parse(mentah);
     if (!samaAman_(String(m.kunci || ''), KUNCI_RAHASIA)) return keluar_({ ok: false, error: 'Kunci salah' });
-    if (m.aksi === 'tes') return keluar_({ ok: true });
+    if (m.aksi === 'tes') return keluar_({ ok: true, versi: VERSI });
     if (m.aksi === 'harga') return keluar_(ambilHarga_(m.data, m.segar === true));
     kunci = LockService.getScriptLock();
     kunci.waitLock(20000);

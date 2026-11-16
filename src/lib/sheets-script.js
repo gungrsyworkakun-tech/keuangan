@@ -28,10 +28,18 @@ export function buatKlienScript({ ambil = () => bacaConfig(), fetcher = (...a) =
     if (!j || !j.ok) throw new Error((j && j.error) || 'Sheet menolak permintaan')
     return j
   }
+  let versi = 0
   return {
-    cari: async () => { await kirim('tes'); return 'script' }, // gagal = link/kunci salah
+    cari: async () => { versi = (await kirim('tes')).versi || 1; return 'script' }, // gagal = link/kunci salah
     buat: async () => 'script',
-    tulis: async (_id, state) => { await kirim('tulis', keBaris(state)) },
+    tulis: async (_id, state) => {
+      // skrip versi lama tidak menyimpan target pemasukan; jangan menimpa Sheet dengan data yang kurang
+      if ((state.budgets || []).some((b) => b.tipe === 'in')) {
+        if (!versi) versi = (await kirim('tes')).versi || 1
+        if (versi < 2) throw new Error('Skrip di Sheet kamu masih versi lama. Salin skrip baru dari menu Profil, tempel ulang, lalu Deploy > Kelola deployment > Versi baru.')
+      }
+      await kirim('tulis', keBaris(state))
+    },
     baca: async () => dariBaris((await kirim('baca')).data || {}),
     harga: async (daftar, segar = false) => (await kirim('harga', daftar, segar ? { segar: true } : {})).harga || {},
   }
