@@ -50,8 +50,6 @@ async function segarkan() {
   const hasil = await Promise.all(katalog.map(periksa))
   S.hasil = hasil
   gambar()
-  const ada = hasil.filter((a) => a.status === 'update')
-  $('#btn-semua').hidden = S.auto || ada.length === 0
   if (S.auto) await perbaruiSemua(true)
 }
 
@@ -62,34 +60,60 @@ function lencana(a) {
   return null
 }
 
-function teksVersi(a) {
-  const terpasang = a.pasang.terpasang ? `Terpasang: build ${a.pasang.kode}` : 'Belum terpasang'
-  return [terpasang, a.build != null ? ` · Terbaru: build ${a.build}` : '']
+// warna ikon dibuat dari id aplikasi supaya tiap aplikasi punya warna sendiri yang tetap
+function warna(id) {
+  const palet = [212, 262, 330, 18, 150, 190, 42, 285]
+  let h = 0
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  const x = palet[h % palet.length]
+  return `linear-gradient(135deg, hsl(${x} 72% 58%), hsl(${(x + 40) % 360} 72% 44%))`
 }
 
-function kartu(a) {
+function versi(a) {
+  const potong = []
+  potong.push(el('span', {}, a.pasang.terpasang ? ['Terpasang ', el('b', {}, 'build ' + a.pasang.kode)] : 'Belum terpasang'))
+  if (a.build != null) potong.push(el('span', {}, ['Terbaru ', el('b', {}, 'build ' + a.build)]))
+  return el('div', { class: 'versi' }, ...potong)
+}
+
+function kartu(a, i) {
   const sibuk = S.sibuk.has(a.id)
   const aksi = []
-  if (a.status === 'baru') aksi.push(el('button', { class: 'tombol utama', disabled: sibuk, onclick: () => pasang(a) }, 'Pasang'))
-  if (a.status === 'update') aksi.push(el('button', { class: 'tombol utama', disabled: sibuk, onclick: () => pasang(a) }, 'Perbarui'))
-  if (a.status === 'tidak-tahu') aksi.push(el('button', { class: 'tombol utama', disabled: sibuk, onclick: () => pasang(a) }, 'Pasang ulang'))
-  if (a.pasang.terpasang) aksi.push(el('button', { class: 'tombol', onclick: () => buka(a) }, 'Buka'))
-  if (a.status === 'galat' || a.status === 'kosong') aksi.push(el('button', { class: 'tombol', onclick: () => segarkan() }, 'Coba lagi'))
+  if (sibuk) aksi.push(el('button', { class: 'tombol utama', disabled: true }, 'Sedang diproses…'))
+  else {
+    if (a.status === 'baru') aksi.push(el('button', { class: 'tombol utama', onclick: () => pasang(a) }, 'Pasang'))
+    if (a.status === 'update') aksi.push(el('button', { class: 'tombol utama', onclick: () => pasang(a) }, 'Perbarui'))
+    if (a.status === 'tidak-tahu') aksi.push(el('button', { class: 'tombol utama', onclick: () => pasang(a) }, 'Pasang ulang'))
+    if (a.pasang.terpasang) aksi.push(el('button', { class: 'tombol', onclick: () => buka(a) }, 'Buka'))
+    if (a.status === 'galat' || a.status === 'kosong') aksi.push(el('button', { class: 'tombol', onclick: () => segarkan() }, 'Coba lagi'))
+  }
   const p = S.progres[a.id]
-  return el('li', { class: 'kartu' },
-    el('h2', {}, a.nama, lencana(a)),
-    a.deskripsi ? el('p', { class: 'desk' }, a.deskripsi) : null,
-    el('p', { class: 'versi' }, ...teksVersi(a)),
+  return el('li', { class: 'kartu', style: `--i:${i}` },
+    el('div', { class: 'kepala' },
+      el('div', { class: 'ikon-app', style: `background:${warna(a.id)}`, 'aria-hidden': 'true' }, (a.nama[0] || '?').toUpperCase()),
+      el('div', { class: 'judul' }, el('h2', {}, a.nama, lencana(a)), a.deskripsi ? el('p', { class: 'desk' }, a.deskripsi) : null)),
+    versi(a),
     a.galat ? el('p', { class: 'info galat' }, a.galat) : null,
     a.status === 'kosong' ? el('p', { class: 'info galat' }, 'Berkas aplikasi belum ada di halaman rilis.') : null,
     p != null ? el('div', { class: 'progres' }, el('div', { style: `width:${p}%` })) : null,
     S.info[a.id] ? el('p', { class: 'info' + (S.info[a.id].galat ? ' galat' : '') }, S.info[a.id].teks) : null,
-    el('div', { class: 'baris-atas', style: 'justify-content:flex-start' }, ...aksi))
+    aksi.length ? el('div', { class: 'aksi' }, ...aksi) : null)
+}
+
+function rangka() {
+  return el('li', { class: 'kartu rangka', 'aria-hidden': 'true' },
+    el('div', { class: 'kepala' }, el('div', { class: 'ikon-app blok', style: 'box-shadow:none' }), el('div', { class: 'judul', style: 'flex:1' }, el('div', { class: 'blok', style: 'height:16px;width:55%' }), el('div', { class: 'blok', style: 'height:12px;width:85%;margin-top:8px' }))),
+    el('div', { class: 'blok', style: 'height:30px;width:70%;margin-top:14px' }))
 }
 
 function gambar() {
-  $('#daftar').replaceChildren(...(S.hasil || []).map(kartu))
+  const hasil = S.hasil || []
+  $('#daftar').replaceChildren(...hasil.map(kartu))
   $('#auto').checked = S.auto
+  const upd = hasil.filter((x) => x.status === 'update').length
+  $('#ringkas').textContent = !hasil.length ? 'Memuat daftar…' : upd ? `${hasil.length} aplikasi · ${upd} punya versi baru` : `${hasil.length} aplikasi · semua sudah terbaru`
+  $('#banner').hidden = S.auto || upd === 0
+  $('#banner-teks').textContent = `${upd} aplikasi punya versi baru`
 }
 
 async function izinAda() {
@@ -156,7 +180,10 @@ async function mulai() {
   $('#btn-izin').addEventListener('click', () => Pemasang && Pemasang.mintaIzin())
   document.addEventListener('visibilitychange', async () => { if (!document.hidden) { if (await izinAda()) $('#izin').hidden = true; if (S.sibuk.size === 0) segarkan() } })
   $('#catatan').textContent = Pemasang ? '' : 'Mode contoh: dibuka di browser, pemasangan tidak aktif.'
+  $('#btn-nanti').addEventListener('click', () => { $('#izin').hidden = true })
+  $('#izin').addEventListener('click', (e) => { if (e.target.id === 'izin') $('#izin').hidden = true })
+  $('#daftar').replaceChildren(rangka(), rangka())
   pasangEvent()
-  try { await segarkan() } catch { pesan('Daftar aplikasi tidak bisa dimuat. Periksa internet lalu tekan "Cek lagi".', true) }
+  try { await segarkan() } catch { $('#daftar').replaceChildren(); $('#ringkas').textContent = 'Daftar tidak termuat'; pesan('Daftar aplikasi tidak bisa dimuat. Periksa internet lalu tekan "Cek lagi".', true) }
 }
 mulai()

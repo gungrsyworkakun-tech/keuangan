@@ -8,28 +8,40 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>Gudang Aplikasi</h1>
-    <p>Pasang dan perbarui aplikasimu dari satu tempat.</p>
+  <header class="atas">
+    <div class="atas-baris">
+      <div>
+        <p class="salam">Gudang Aplikasi</p>
+        <h1>Aplikasimu</h1>
+      </div>
+      <button id="btn-segarkan" class="ikon" aria-label="Cek versi terbaru">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+      </button>
+    </div>
+    <p id="ringkas" class="ringkas">Memuat daftar…</p>
   </header>
   <main>
     <div id="pesan" role="status" hidden></div>
-    <div id="izin" class="kotak" hidden>
-      <strong>Izinkan memasang aplikasi</strong>
-      <p>Supaya bisa memasang aplikasi, nyalakan izin <b>"Izinkan dari sumber ini"</b> untuk Gudang Aplikasi di pengaturan HP. Setelah itu kembali ke sini.</p>
-      <button id="btn-izin" class="tombol utama">Buka pengaturan</button>
-    </div>
-    <div class="baris-atas">
-      <button id="btn-semua" class="tombol utama" hidden>Perbarui semua</button>
-      <button id="btn-segarkan" class="tombol">Cek lagi</button>
-    </div>
+    <section id="banner" class="banner" hidden>
+      <div><strong id="banner-teks"></strong><small>Perbarui sekarang supaya selalu yang terbaru.</small></div>
+      <button id="btn-semua" class="tombol terang">Perbarui semua</button>
+    </section>
     <ul id="daftar" aria-live="polite"></ul>
-    <label class="kotak otomatis">
-      <input type="checkbox" id="auto" />
-      <span><strong>Perbarui otomatis saat dibuka</strong><small>Kalau ada versi baru, langsung diunduh dan dipasang. Android tetap bisa meminta kamu menekan "Pasang" di layar.</small></span>
+    <label class="baris-auto">
+      <span><strong>Perbarui otomatis</strong><small>Saat toko dibuka dan ada versi baru, langsung diunduh dan dipasang. Android kadang tetap meminta kamu menekan "Pasang".</small></span>
+      <input type="checkbox" id="auto" role="switch" />
     </label>
     <p id="catatan" class="kecil"></p>
   </main>
+  <div id="izin" class="lembar" hidden>
+    <div class="lembar-isi" role="dialog" aria-modal="true" aria-labelledby="izin-judul">
+      <div class="pegangan"></div>
+      <h2 id="izin-judul">Izinkan memasang aplikasi</h2>
+      <p>Supaya bisa memasang aplikasi, nyalakan <b>"Izinkan dari sumber ini"</b> untuk Gudang Aplikasi di pengaturan HP. Setelah itu kembali ke sini.</p>
+      <button id="btn-izin" class="tombol utama besar">Buka pengaturan</button>
+      <button id="btn-nanti" class="tombol polos besar">Nanti saja</button>
+    </div>
+  </div>
   <script type="module" src="app.js"></script>
 </body>
 </html>
