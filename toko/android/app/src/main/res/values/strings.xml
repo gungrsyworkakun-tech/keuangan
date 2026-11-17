@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gudang Aplikasi</string>
+    <string name="title_activity_main">Gudang Aplikasi</string>
+    <string name="package_name">app.gudang.aplikasi</string>
+    <string name="custom_url_scheme">app.gudang.aplikasi</string>
+</resources>

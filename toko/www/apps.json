@@ -1,0 +1,20 @@
+[
+  {
+    "id": "duitku",
+    "nama": "Duitku",
+    "deskripsi": "Catatan keuangan pribadi: transaksi, anggaran, tabungan, dan investasi.",
+    "repo": "gungrsyworkakun-tech/keuangan",
+    "tag": "apk-terbaru",
+    "berkas": "Duitku.apk",
+    "paket": "app.duitku.keuangan"
+  },
+  {
+    "id": "gudang",
+    "nama": "Gudang Aplikasi",
+    "deskripsi": "Toko ini sendiri. Perbarui di sini kalau ada versi baru.",
+    "repo": "gungrsyworkakun-tech/keuangan",
+    "tag": "toko-terbaru",
+    "berkas": "GudangAplikasi.apk",
+    "paket": "app.gudang.aplikasi"
+  }
+]

@@ -1,0 +1,33 @@
+:root { --biru: #1F3A5F; --aksen: #FFC43D; --teks: #1b2430; --abu: #5d6978; --garis: #dfe5ec; --bg: #f3f5f8; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--teks); background: var(--bg); padding-bottom: env(safe-area-inset-bottom); }
+header { background: var(--biru); color: #fff; padding: calc(env(safe-area-inset-top) + 20px) 20px 22px; }
+header h1 { margin: 0 0 2px; font-size: 22px; }
+header p { margin: 0; color: #c9d6e8; font-size: 14px; }
+main { padding: 16px; max-width: 640px; margin: 0 auto; }
+ul { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 12px; }
+.kartu, .kotak { background: #fff; border: 1px solid var(--garis); border-radius: 14px; padding: 14px; }
+.kotak { margin: 12px 0; }
+.kotak p { margin: 6px 0 10px; color: var(--abu); font-size: 14px; }
+.kartu h2 { margin: 0; font-size: 17px; }
+.kartu .desk { margin: 2px 0 8px; color: var(--abu); font-size: 14px; }
+.kartu .versi { margin: 0 0 10px; font-size: 13px; color: var(--abu); }
+.kartu .versi b { color: var(--teks); }
+.lencana { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; margin-left: 6px; vertical-align: middle; background: #e6ecf4; color: var(--biru); }
+.lencana.update { background: var(--aksen); color: #3b2b00; }
+.lencana.terbaru { background: #dff3e4; color: #1d6b34; }
+.tombol { font: inherit; border: 1px solid var(--garis); background: #fff; color: var(--teks); padding: 9px 16px; border-radius: 10px; min-height: 42px; }
+.tombol.utama { background: var(--biru); color: #fff; border-color: var(--biru); }
+.tombol:disabled { opacity: .55; }
+.baris-atas { display: flex; gap: 8px; justify-content: flex-end; }
+.progres { height: 8px; background: var(--garis); border-radius: 99px; overflow: hidden; margin: 8px 0 4px; }
+.progres > div { height: 100%; width: 0; background: var(--biru); transition: width .2s; }
+.info { font-size: 13px; color: var(--abu); margin: 4px 0 0; }
+.galat { color: #a3262a; }
+#pesan { background: #fff7e0; border: 1px solid #f1dc9c; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; font-size: 14px; }
+#pesan.galat { background: #fdecec; border-color: #f2b9bb; color: #8f1f23; }
+.otomatis { display: flex; gap: 10px; align-items: flex-start; }
+.otomatis input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
+.otomatis small { display: block; color: var(--abu); font-size: 13px; margin-top: 2px; }
+.kecil { font-size: 12px; color: var(--abu); text-align: center; }
+[hidden] { display: none !important; }

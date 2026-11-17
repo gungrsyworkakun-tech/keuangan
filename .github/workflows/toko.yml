@@ -1,0 +1,70 @@
+name: Gudang Aplikasi
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['toko-v*']
+    branches: [toko-aplikasi, main]
+    paths: ['toko/**', '.github/workflows/toko.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+    defaults:
+      run:
+        working-directory: toko
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: toko/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Terima lisensi Android SDK (SDK sudah ada di mesin GitHub)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - run: npm ci
+      - run: npm test
+      - run: npx cap sync android
+      - name: Nomor versi
+        run: echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+      - name: Siapkan kunci tanda tangan
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/duitku.jks"
+          echo "KEYSTORE_FILE=$RUNNER_TEMP/duitku.jks" >> "$GITHUB_ENV"
+          echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> "$GITHUB_ENV"
+      - name: APK rilis bertanda tangan
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        working-directory: toko/android
+        run: ./gradlew assembleRelease
+      - name: APK percobaan (kalau kunci belum ada)
+        if: ${{ env.KEYSTORE_BASE64 == '' }}
+        working-directory: toko/android
+        run: ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gudang-aplikasi
+          path: |
+            toko/android/app/build/outputs/apk/release/*.apk
+            toko/android/app/build/outputs/apk/debug/*.apk
+      - name: Taruh APK di halaman Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: .
+        run: |
+          if [ -f toko/android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp toko/android/app/build/outputs/apk/release/app-release.apk GudangAplikasi.apk
+            JENIS="APK rilis bertanda tangan"
+          else
+            cp toko/android/app/build/outputs/apk/debug/app-debug.apk GudangAplikasi.apk
+            JENIS="APK percobaan (debug)"
+          fi
+          gh release delete toko-terbaru --yes --cleanup-tag || true
+          gh release create toko-terbaru GudangAplikasi.apk --prerelease --target "$GITHUB_SHA" \
+            --title "Gudang Aplikasi terbaru" --notes "$JENIS, build #${{ github.run_number }}. Unduh GudangAplikasi.apk lalu pasang di HP Android."

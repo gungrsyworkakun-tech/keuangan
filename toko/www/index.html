@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1F3A5F" />
+  <title>Gudang Aplikasi</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Gudang Aplikasi</h1>
+    <p>Pasang dan perbarui aplikasimu dari satu tempat.</p>
+  </header>
+  <main>
+    <div id="pesan" role="status" hidden></div>
+    <div id="izin" class="kotak" hidden>
+      <strong>Izinkan memasang aplikasi</strong>
+      <p>Supaya bisa memasang aplikasi, nyalakan izin <b>"Izinkan dari sumber ini"</b> untuk Gudang Aplikasi di pengaturan HP. Setelah itu kembali ke sini.</p>
+      <button id="btn-izin" class="tombol utama">Buka pengaturan</button>
+    </div>
+    <div class="baris-atas">
+      <button id="btn-semua" class="tombol utama" hidden>Perbarui semua</button>
+      <button id="btn-segarkan" class="tombol">Cek lagi</button>
+    </div>
+    <ul id="daftar" aria-live="polite"></ul>
+    <label class="kotak otomatis">
+      <input type="checkbox" id="auto" />
+      <span><strong>Perbarui otomatis saat dibuka</strong><small>Kalau ada versi baru, langsung diunduh dan dipasang. Android tetap bisa meminta kamu menekan "Pasang" di layar.</small></span>
+    </label>
+    <p id="catatan" class="kecil"></p>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
