@@ -42,6 +42,11 @@ export function buatKlienScript({ ambil = () => bacaConfig(), fetcher = (...a) =
     },
     baca: async () => dariBaris((await kirim('baca')).data || {}),
     harga: async (daftar, segar = false) => (await kirim('harga', daftar, segar ? { segar: true } : {})).harga || {},
+    // riwayat harga untuk grafik; skrip versi lama tidak mengenalnya -> pesan khusus
+    riwayat: async (jenis, hari = 90) => {
+      try { return (await kirim('riwayat', { jenis, hari })).titik || [] }
+      catch (e) { throw new Error(/tidak dikenal/i.test(e.message) ? 'SKRIP_LAMA' : e.message) }
+    },
   }
 }
 
