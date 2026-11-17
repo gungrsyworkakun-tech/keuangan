@@ -2,6 +2,27 @@
 <html lang="id">
 <head>
 <base target="_top">
+<script>
+/* Penanda galat: kalau halaman macet di layar muat, tampilkan sebabnya di layar. */
+(function(){
+  var daftar=[];
+  function tampil(){
+    var p=document.getElementById('splashTeks'),b=document.getElementById('splashUlang'); if(!p) return;
+    var ua=(navigator.userAgent.match(/Chrome\/[\d.]+/)||['?'])[0];
+    p.textContent='Galat: '+daftar.join(' | ')+' ['+ua+']'; p.className='tampil'; p.style.maxWidth='320px'; p.style.wordBreak='break-word'; p.style.fontSize='12px';
+    if(b) b.className='tampil';
+  }
+  window.addEventListener('error',function(e){
+    daftar.push(String(e.message||'galat')+(e.lineno?' @'+e.lineno:'')+(e.filename&&!/index\.html$/.test(e.filename)?' '+String(e.filename).split('/').pop():'')); if(daftar.length>3) daftar.shift();
+    if(document.readyState!=='loading') tampil(); else document.addEventListener('DOMContentLoaded',tampil);
+  },true);
+  window.addEventListener('unhandledrejection',function(e){
+    daftar.push('janji: '+String((e.reason&&e.reason.message)||e.reason)); if(daftar.length>3) daftar.shift();
+    if(document.readyState!=='loading') tampil();
+  });
+  window.__rkTampilGalat=tampil;
+})();
+</script>
 <meta charset="utf-8">
 <link rel="preconnect" href="https://script.google.com" crossorigin>
 <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
