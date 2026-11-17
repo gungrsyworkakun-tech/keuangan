@@ -1,0 +1,6 @@
+{
+  "appId": "app.gudang.aplikasi",
+  "appName": "Gudang Aplikasi",
+  "webDir": "www",
+  "android": { "allowMixedContent": false }
+}
