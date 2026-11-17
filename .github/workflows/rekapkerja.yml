@@ -1,0 +1,68 @@
+name: Rekap Kerja (Android)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['rekapkerja/**', '.github/workflows/rekapkerja.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+    defaults:
+      run:
+        working-directory: rekapkerja
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: rekapkerja/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Terima lisensi Android SDK (SDK sudah ada di mesin GitHub)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - run: npm ci
+      - run: npx cap sync android
+      - name: Nomor versi
+        run: echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+      - name: Siapkan kunci tanda tangan
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/duitku.jks"
+          echo "KEYSTORE_FILE=$RUNNER_TEMP/duitku.jks" >> "$GITHUB_ENV"
+          echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> "$GITHUB_ENV"
+      - name: APK rilis bertanda tangan
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        working-directory: rekapkerja/android
+        run: ./gradlew assembleRelease
+      - name: APK percobaan (kalau kunci belum ada)
+        if: ${{ env.KEYSTORE_BASE64 == '' }}
+        working-directory: rekapkerja/android
+        run: ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rekap-kerja
+          path: |
+            rekapkerja/android/app/build/outputs/apk/release/*.apk
+            rekapkerja/android/app/build/outputs/apk/debug/*.apk
+      - name: Taruh APK di halaman Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: .
+        run: |
+          if [ -f rekapkerja/android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp rekapkerja/android/app/build/outputs/apk/release/app-release.apk RekapKerja.apk
+            JENIS="APK rilis bertanda tangan"
+          else
+            cp rekapkerja/android/app/build/outputs/apk/debug/app-debug.apk RekapKerja.apk
+            JENIS="APK percobaan (debug)"
+          fi
+          gh release delete rekapkerja-terbaru --yes --cleanup-tag || true
+          gh release create rekapkerja-terbaru RekapKerja.apk --prerelease --target "$GITHUB_SHA" \
+            --title "Rekap Kerja terbaru" --notes "$JENIS, build #${{ github.run_number }}. Unduh RekapKerja.apk lalu pasang di HP Android."

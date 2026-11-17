@@ -9,6 +9,15 @@
     "paket": "app.duitku.keuangan"
   },
   {
+    "id": "rekapkerja",
+    "nama": "Rekap Kerja",
+    "deskripsi": "Catatan kegiatan harian, laporan Laptensi/Gangguan/BA/Nota/Pemeliharaan/Notula, foto, dan kirim ke WhatsApp.",
+    "repo": "gungrsyworkakun-tech/keuangan",
+    "tag": "rekapkerja-terbaru",
+    "berkas": "RekapKerja.apk",
+    "paket": "app.rekapkerja.kantor"
+  },
+  {
     "id": "gudang",
     "nama": "Gudang Aplikasi",
     "deskripsi": "Toko ini sendiri. Perbarui di sini kalau ada versi baru.",

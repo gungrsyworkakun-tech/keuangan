@@ -1,0 +1,19 @@
+{
+  "name": "rekap-kerja-android",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Rekap Kerja sebagai aplikasi Android (membungkus halaman web; data tersimpan di server hosting).",
+  "scripts": {
+    "android:sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0"
+  }
+}
