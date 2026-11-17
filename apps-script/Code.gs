@@ -9,7 +9,7 @@ const TABEL = {
   Rekening:  ['id', 'name', 'balance', 'jenis'],
   Investasi: ['id', 'name', 'type', 'invested', 'value', 'sumber', 'kode', 'qty'],
   Goal:      ['id', 'name', 'target', 'saved', 'deadline'],
-  Anggaran:  ['category', 'limit'],
+  Anggaran:  ['category', 'limit', 'tipe'],  // tipe: 'in' = target pemasukan, kosong = batas pengeluaran
   Tabungan:  ['id', 'month', 'amount', 'note', 'pos'],
 };
 // nama di aplikasi -> nama tab di Sheets
