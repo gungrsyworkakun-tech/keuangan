@@ -406,8 +406,8 @@ function vBanding(a,b){ var x=String(a).split('.').map(Number), y=String(b).spli
 var API_URL=(/^https?:$/.test(location.protocol)&&!/^localhost$/.test(location.hostname))?new URL('api.php',location.href).href:'https://cara-kinerja-ngr.my.id/api.php';
 var DI_APK=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 /* Di aplikasi Android: unduh & bagikan file lewat menu bagikan bawaan HP (WebView tidak bisa unduh blob). */
-if(DI_APK){ (function(){
-  var C=window.Capacitor, Fs=C.registerPlugin('Filesystem'), Sh=C.registerPlugin('Share');
+if(DI_APK){ try{ (function(){
+  var C=window.Capacitor, P=C.Plugins||{}, Fs=P.Filesystem||(C.registerPlugin&&C.registerPlugin('Filesystem')), Sh=P.Share||(C.registerPlugin&&C.registerPlugin('Share')); if(!Fs||!Sh) return;
   function b64(blob){ return new Promise(function(r,j){ var f=new FileReader(); f.onload=function(){ r(String(f.result).split(',')[1]); }; f.onerror=j; f.readAsDataURL(blob); }); }
   navigator.canShare=function(){ return true; };
   navigator.share=async function(d){
@@ -422,7 +422,7 @@ if(DI_APK){ (function(){
     e.preventDefault(); e.stopPropagation();
     fetch(a.href).then(function(r){ return r.blob(); }).then(function(b){ return navigator.share({files:[new File([b],a.getAttribute('download')||'berkas',{type:b.type})]}); }).catch(function(){});
   },true);
-})(); }
+})(); }catch(e){} }
 
 var S = { cari:{dok:'',keg:''}, dokData:[], kegData:[], token:null, user:null, set:{}, nama:[], tab:'home', dok:{}, keg:{}, fJenis:'', dokBulan:null, kegBulan:null, hasil:null };
 var BLN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
