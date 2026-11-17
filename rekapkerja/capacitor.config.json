@@ -1,0 +1,6 @@
+{
+  "appId": "app.rekapkerja.kantor",
+  "appName": "Rekap Kerja",
+  "webDir": "www",
+  "android": { "allowMixedContent": false }
+}
