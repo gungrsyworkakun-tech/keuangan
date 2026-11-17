@@ -2,5 +2,12 @@
   "appId": "app.rekapkerja.kantor",
   "appName": "Rekap Kerja",
   "webDir": "www",
-  "android": { "allowMixedContent": false }
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
 }
