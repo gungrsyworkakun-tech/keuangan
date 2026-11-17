@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Panel, Empty } from './ui'
 import { Ring } from '../components/charts'
 import { rupiah, tanggal } from '../lib/format'
+import Simulasi from './simulasi'
 import EditDialog from './edit-dialog'
 
 export default function Goal({ state, dispatch }) {
@@ -56,6 +57,7 @@ export default function Goal({ state, dispatch }) {
         fields={[{ k: 'name', label: 'Nama goal', type: 'text' }, { k: 'target', label: 'Target (Rp)', type: 'number', min: 1 }, { k: 'saved', label: 'Sudah terkumpul (Rp)', type: 'number', min: 0 }, { k: 'deadline', label: 'Tenggat', type: 'date' }]}
         onSave={(patch) => dispatch({ type: 'updateGoal', id: ed.id, patch })}
         onDelete={() => dispatch({ type: 'deleteGoal', id: ed.id })} />
+      <Simulasi goals={state.goals} />
       <Panel title="Buat goal baru">
         <form className="inline" onSubmit={add}>
           <input placeholder="Nama goal" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label="Nama goal" />

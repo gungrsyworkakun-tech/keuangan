@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { Panel, Amount, Empty } from './ui'
 import { tanggal, rupiah } from '../lib/format'
 import { daftarKategori, adalahTransfer, tipeTampil } from '../lib/store'
+import { hariIni } from '../lib/format'
+import Kalender from './kalender'
 import EditDialog from './edit-dialog'
 
 const HALAMAN = 40
@@ -12,13 +14,17 @@ export default function Transaksi({ state, dispatch, onAdd }) {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(null)
   const [banyak, setBanyak] = useState(HALAMAN)
+  const [tampil, setTampil] = useState('daftar'), [bulan, setBulan] = useState(() => hariIni().slice(0, 7)), [pilih, setPilih] = useState(null)
   const acc = (id) => state.accounts.find((a) => a.id === id)?.name || '-'
   const list = useMemo(() => state.transactions
-    .filter((t) => (filter === 'all' || (filter === 'tf' ? adalahTransfer(t) : t.type === filter && !adalahTransfer(t))) && t.desc.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => b.date.localeCompare(a.date)), [state.transactions, filter, q])
+    .filter((t) => (filter === 'all' || (filter === 'tf' ? adalahTransfer(t) : t.type === filter && !adalahTransfer(t))) && t.desc.toLowerCase().includes(q.toLowerCase())
+      && (tampil !== 'kalender' || (pilih ? t.date === pilih : t.date.slice(0, 7) === bulan)))
+    .sort((a, b) => b.date.localeCompare(a.date)), [state.transactions, filter, q, tampil, bulan, pilih])
   const jml = list.filter((t) => !adalahTransfer(t)).reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0)
   return (
     <Panel title="Semua transaksi" sub={`${list.length} transaksi · selisih ${rupiah(jml)}`} action={<button className="btn primary sm-hide" onClick={onAdd}>+ Tambah</button>}>
+      <div className="seg" style={{ marginBottom: 12 }}>{[['daftar', 'Daftar'], ['kalender', 'Kalender']].map(([k, l]) => <button key={k} className={tampil === k ? 'on' : ''} onClick={() => { setTampil(k); setBanyak(HALAMAN) }}>{l}</button>)}</div>
+      {tampil === 'kalender' && <Kalender transaksi={state.transactions} bulan={bulan} setBulan={setBulan} pilih={pilih} setPilih={setPilih} />}
       <div className="toolbar">
         <div className="seg">{[['all', 'Semua'], ['in', 'Masuk'], ['out', 'Keluar'], ['tf', 'Transfer']].map(([k, l]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => { setFilter(k); setBanyak(HALAMAN) }}>{l}</button>)}</div>
         <input placeholder="Cari keterangan…" value={q} onChange={(e) => { setQ(e.target.value); setBanyak(HALAMAN) }} aria-label="Cari transaksi" />

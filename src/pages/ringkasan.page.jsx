@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Panel, Amount, Empty } from './ui'
 import { adalahTransfer, tipeTampil } from '../lib/store'
 import { BarChart, Donut, LineChart } from '../components/charts'
+import SisaHarian from './sisa-harian'
 import { rupiah, tanggal, bulanKey, bulanLabel, bulanPendek } from '../lib/format'
 
 export default function Ringkasan({ state, onAdd, profil }) {
@@ -56,6 +57,8 @@ export default function Ringkasan({ state, onAdd, profil }) {
         <div className="metric m-out"><small>Pengeluaran</small><Amount value={keluar} type="out" /></div>
         <div className="metric m-net"><small>Selisih</small><strong className={masuk - keluar >= 0 ? 'in' : 'out'}>{rupiah(masuk - keluar)}</strong></div>
       </div>
+
+      <SisaHarian state={state} />
 
       <div className="grid-main">
         <Panel title="Arus kas" sub="Pemasukan dan pengeluaran per bulan">

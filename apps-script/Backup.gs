@@ -21,7 +21,7 @@ const TABEL = {
   Tabungan:  ['id', 'month', 'amount', 'note', 'pos'],
 };
 const KOLOM_ANGKA = { amount: 1, balance: 1, invested: 1, value: 1, target: 1, saved: 1, limit: 1, qty: 1 };
-const VERSI = 2; // 2 = Anggaran punya kolom 'tipe' (pemasukan/pengeluaran)
+const VERSI = 3; // 2 = Anggaran punya kolom 'tipe'; 3 = riwayat harga untuk grafik (tab RiwayatHarga)
 const MAKS_BARIS = 5000;
 const MAKS_BYTE = 2000000;
 
@@ -39,6 +39,7 @@ function doPost(e) {
     if (!samaAman_(String(m.kunci || ''), KUNCI_RAHASIA)) return keluar_({ ok: false, error: 'Kunci salah' });
     if (m.aksi === 'tes') return keluar_({ ok: true, versi: VERSI });
     if (m.aksi === 'harga') return keluar_(ambilHarga_(m.data, m.segar === true));
+    if (m.aksi === 'riwayat') return keluar_(bacaRiwayat_(m.data));
     kunci = LockService.getScriptLock();
     kunci.waitLock(20000);
     if (m.aksi === 'baca') return keluar_({ ok: true, data: baca_() });
@@ -199,5 +200,61 @@ function ambilHarga_(daftar, segar) {
       hasil[kunci] = o;
     } catch (err) { hasil[kunci] = { err: 'Harga belum bisa diambil (' + String(err.message || err).slice(0, 60) + ')' }; }
   });
+  catatRiwayat_(hasil);
   return { ok: true, harga: hasil };
+}
+
+/* ---------- RIWAYAT HARGA (untuk grafik) ----------
+ * Setiap kali aplikasi mengambil harga, harga hari itu dicatat di tab "RiwayatHarga" (satu baris per tanggal per jenis).
+ * Grafiknya mulai terisi sejak skrip versi ini dipasang; harga masa lalu tidak bisa diambil. */
+const TAB_RIWAYAT = 'RiwayatHarga';
+const MAKS_RIWAYAT = 4000;
+function hariIniJakarta_() { return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10); }
+function bacaBarisRiwayat_(sh) {
+  const n = sh ? sh.getLastRow() : 0;
+  if (n < 2) return [];
+  return sh.getRange(2, 1, n - 1, 3).getValues()
+    .map(function (r) { return [String(r[0]), String(r[1]), Number(r[2])]; })
+    .filter(function (r) { return /^\d{4}-\d{2}-\d{2}$/.test(r[0]) && r[2] > 0; });
+}
+function catatRiwayat_(hasil) {
+  let kunci = null;
+  try {
+    const baru = Object.keys(hasil).filter(function (k) { return hasil[k] && hasil[k].p > 0; });
+    if (!baru.length) return;
+    kunci = LockService.getScriptLock();
+    if (!kunci.tryLock(3000)) return;           // sedang dipakai backup; lewati saja, tidak penting
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sh = ss.getSheetByName(TAB_RIWAYAT);
+    const hari = hariIniJakarta_();
+    let baris = bacaBarisRiwayat_(sh), berubah = false;
+    baru.forEach(function (k) {
+      const p = Math.round(hasil[k].p * 100) / 100;
+      const ada = baris.filter(function (r) { return r[0] === hari && r[1] === k; })[0];
+      if (ada) { if (ada[2] !== p) { ada[2] = p; berubah = true; } } else { baris.push([hari, k, p]); berubah = true; }
+    });
+    if (!berubah) return;
+    baris.sort(function (a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; });
+    if (baris.length > MAKS_RIWAYAT) baris = baris.slice(baris.length - MAKS_RIWAYAT);
+    if (!sh) sh = ss.insertSheet(TAB_RIWAYAT);
+    sh.clearContents();
+    const isi = [['tanggal', 'jenis', 'harga']].concat(baris);
+    sh.getRange(1, 1, isi.length, 2).setNumberFormat('@');
+    sh.getRange(1, 3, isi.length, 1).setNumberFormat('0.##');
+    sh.getRange(1, 1, isi.length, 3).setValues(isi);
+    sh.getRange(1, 1, 1, 3).setFontWeight('bold');
+  } catch (err) { /* riwayat hanya pelengkap: kegagalan di sini tidak boleh mengganggu harga */ }
+  finally { if (kunci) { try { kunci.releaseLock(); } catch (x) {} } }
+}
+// data: { jenis: 'emasid:GALERI 24|buyback', hari: 90 }  ->  { ok, titik: [{t:'YYYY-MM-DD', p}] }
+function bacaRiwayat_(data) {
+  const jenis = String(data && data.jenis || '');
+  if (!/^(emas|emasid|kripto|saham):[A-Za-z0-9.\- |]{0,40}$/.test(jenis)) return { ok: false, error: 'Jenis tidak valid' };
+  const hari = Math.min(800, Math.max(1, Math.floor(Number(data && data.hari)) || 90));
+  const batas = new Date(Date.now() + 7 * 3600 * 1000 - hari * 86400000).toISOString().slice(0, 10);
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TAB_RIWAYAT);
+  const titik = bacaBarisRiwayat_(sh)
+    .filter(function (r) { return r[1] === jenis && r[0] >= batas; })
+    .map(function (r) { return { t: r[0], p: r[2] }; });
+  return { ok: true, titik: titik };
 }
