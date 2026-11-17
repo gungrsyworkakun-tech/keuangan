@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "build:app": "VITE_APP_MODE=native vite build",
     "android:sync": "npm run build:app && cap sync android",
-    "test": "node test/sheets-backup.test.mjs && node test/sheets-script.test.mjs"
+    "test": "node test/hitung.test.mjs && node test/kode-pindah.test.mjs && node test/sheets-backup.test.mjs && node test/sheets-script.test.mjs && node test/store.test.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.6.2",

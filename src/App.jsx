@@ -54,6 +54,9 @@ export default function App() {
 function Main({ onKeluar }) {
   const [state, dispatch, meta] = useStore(onKeluar)
   const cadang = useBackup(state, dispatch, NATIVE)
+  // isi tabungan otomatis untuk bulan yang terlewat; tunggu data benar-benar termuat
+  const siapOtomatis = meta.status === 'ready' && (!MODE_SHEETS || meta.segar)
+  useEffect(() => { if (siapOtomatis) dispatch({ type: 'jalankanOtomatis', sekarang: new Date().toISOString().slice(0, 7) }) }, [siapOtomatis, dispatch])
   const [route, setRoute] = useState(currentRoute())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [tipeAwal, setTipeAwal] = useState('out')

@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import { buatKlienScript, cekLink, bacaConfig, simpanConfig, kunciBaru, kunciDraf, skripDenganKunci } from '../src/lib/sheets-script.js'
 
 const KUNCI = 'kunci-rahasia-panjang-123'
-function jalankan(kodeAwal) {
+function jalankan(kodeAwal, urlFetch) {
   const lembar = {}, rumus = []
   const buat = () => {
     let nilai = [], fmt = {}
@@ -24,11 +24,11 @@ function jalankan(kodeAwal) {
   const ctx = vm.createContext({
     SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: (n) => lembar[n], insertSheet: (n) => (lembar[n] = buat()) }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (s) => ({ s, setMimeType() { return this } }) },
-    LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-    CacheService: { getScriptCache: () => ({ get: () => null, put() {} }) },
-    UrlFetchApp: { fetch: () => { throw new Error('offline') } },
+    LockService: { getScriptLock: () => ({ waitLock() {}, tryLock: () => true, releaseLock() {} }) },
+    CacheService: { getScriptCache: () => ({ get: () => null, put() {}, remove() {} }) },
+    UrlFetchApp: urlFetch || { fetch: () => { throw new Error('offline') } },
     Utilities: {},
-    JSON, Date, Array, Object, Number, String, Math,
+    JSON, Date, RegExp, Array, Object, Number, String, Math,
   })
   vm.runInContext(kodeAwal, ctx)
   const doPost = vm.runInContext('doPost', ctx)
@@ -47,7 +47,7 @@ for (const x of ['https://evil.com/macros/s/abc/exec', 'http://script.google.com
 assert.equal(await klien(KUNCI).cari(), 'script')
 await assert.rejects(() => klien('kunci-salah-salah-1234').cari(), /Kunci salah/)
 
-const state = { accounts: [{ id: 'a1', name: 'BCA', balance: 1500000, jenis: 'bank' }], transactions: [{ id: 't1', date: '2026-11-01', desc: '=HYPERLINK("http://x","klik")', amount: 25000, type: 'out', category: 'Makan', accountId: 'a1' }], investments: [], goals: [], budgets: [{ category: 'Makan', limit: 900000 }], savings: [] }
+const state = { accounts: [{ id: 'a1', name: 'BCA', balance: 1500000, jenis: 'bank' }], transactions: [{ id: 't1', date: '2026-11-01', desc: '=HYPERLINK("http://x","klik")', amount: 25000, type: 'out', category: 'Makan', accountId: 'a1' }], investments: [], goals: [], budgets: [{ category: 'Makan', limit: 900000 }, { category: 'Gaji', limit: 5000000, tipe: 'in' }], savings: [{ id: 's1', month: 'otomatis', amount: 500000, note: '2026-01|2026-11|BCA ATM', pos: 'darurat' }] }
 await klien(KUNCI).tulis('script', state)
 assert.deepEqual(rumus, [], 'isi yang diawali = tidak boleh jadi rumus')
 const balik = await klien(KUNCI).baca('script')
@@ -60,6 +60,37 @@ const h = await klien(KUNCI).harga([{ sumber: 'emas', kode: '' }, { sumber: 'sah
 assert.match(h['emas:'].err, /belum bisa diambil/); assert.match(h['saham:BBCA'].err, /belum bisa diambil/)
 assert.equal(h['ngawur:x'], undefined); assert.equal(h['saham:../x'].err, 'Kode tidak valid')
 await assert.rejects(() => klien('kunci-salah-salah-1234').harga([]), /Kunci salah/)
+
+// riwayat harga: tiap pengambilan harga dicatat per hari; grafik membaca kembali; skrip lama memberi pesan jelas
+{
+  let harga = 1000
+  const palsu = { fetch: () => ({ getResponseCode: () => 200, getContentText: () => JSON.stringify({ chart: { result: [{ meta: { regularMarketPrice: harga } }] } }) }) }
+  const j = jalankan(asli.replace("'GANTI-INI-DENGAN-KATA-RAHASIA-PANJANG'", `'${KUNCI}'`), palsu)
+  const k = buatKlienScript({ ambil: () => ({ url: URL_OK, kunci: KUNCI }), fetcher: j.fetcher })
+  assert.deepEqual(await k.riwayat('saham:BBCA'), [])
+  await k.harga([{ sumber: 'saham', kode: 'BBCA' }])
+  harga = 1100
+  await k.harga([{ sumber: 'saham', kode: 'BBCA' }]) // hari yang sama: ditimpa, bukan baris baru
+  await k.harga([{ sumber: 'saham', kode: 'BBRI' }])
+  const r = await k.riwayat('saham:BBCA', 30)
+  assert.equal(r.length, 1); assert.equal(r[0].p, 1100); assert.match(r[0].t, /^\d{4}-\d{2}-\d{2}$/)
+  assert.equal((await k.riwayat('saham:BBRI')).length, 1)
+  await assert.rejects(() => k.riwayat('ngawur:x'), /tidak valid/)
+  await assert.rejects(() => buatKlienScript({ ambil: () => ({ url: URL_OK, kunci: 'salah-salah-salah-1' }), fetcher: j.fetcher }).riwayat('saham:BBCA'), /Kunci salah/)
+  // data backup biasa tidak ikut terhapus/tertimpa oleh riwayat, dan sebaliknya
+  await k.tulis('script', state); assert.equal((await k.riwayat('saham:BBCA')).length, 1)
+  const lamaV2 = jalankan(asli.replace("'GANTI-INI-DENGAN-KATA-RAHASIA-PANJANG'", `'${KUNCI}'`).replace("if (m.aksi === 'riwayat') return keluar_(bacaRiwayat_(m.data));", ''))
+  await assert.rejects(() => buatKlienScript({ ambil: () => ({ url: URL_OK, kunci: KUNCI }), fetcher: lamaV2.fetcher }).riwayat('saham:BBCA'), /SKRIP_LAMA/)
+}
+
+// skrip lama (tanpa 'versi') tidak boleh menimpa Sheet bila ada target pemasukan
+{
+  const lama = jalankan(asli.replace("'GANTI-INI-DENGAN-KATA-RAHASIA-PANJANG'", `'${KUNCI}'`).replace('{ ok: true, versi: VERSI }', '{ ok: true }'))
+  const k = buatKlienScript({ ambil: () => ({ url: URL_OK, kunci: KUNCI }), fetcher: lama.fetcher })
+  await k.cari()
+  await assert.rejects(() => k.tulis('script', state), /versi lama/)
+  await k.tulis('script', { ...state, budgets: [{ category: 'Makan', limit: 900000 }] }) // tanpa pemasukan tetap boleh
+}
 
 // skrip dengan kunci bawaan yang belum diganti menolak bekerja
 const belum = jalankan(asli)
@@ -103,3 +134,13 @@ await assert.rejects(() => al.gantiPassword('salah', 'baru-baru-1'), /lama salah
 await al.gantiPassword('rahasia123', 'baru-baru-1')
 assert.equal(await al.cekAkun('budi', 'rahasia123'), false); assert.equal(await al.cekAkun('budi', 'baru-baru-1'), true)
 console.log('uji akun lokal lulus')
+
+// harga segar: permintaan dari tombol "Perbarui harga" membawa segar:true, permintaan biasa tidak
+{
+  const bodies = []
+  const k = buatKlienScript({ ambil: () => ({ url: 'https://script.google.com/macros/s/abc/exec', kunci: 'x'.repeat(20) }), fetcher: async (_u, o) => { bodies.push(JSON.parse(o.body)); return { json: async () => ({ ok: true, harga: {} }) } } })
+  await k.harga([{ sumber: 'emas', kode: '' }])
+  await k.harga([{ sumber: 'emas', kode: '' }], true)
+  assert.equal(bodies[0].segar, undefined)
+  assert.equal(bodies[1].segar, true)
+}

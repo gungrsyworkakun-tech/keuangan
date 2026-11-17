@@ -133,18 +133,19 @@ export function Donut({ items, tengah, sub, size = 148 }) {
 }
 
 /** Grafik garis + area. data: [{label, value}] (boleh negatif) */
-export function LineChart({ data, height = 200, color = 'var(--data-1)' }) {
+export function LineChart({ data, height = 200, color = 'var(--data-1)', dasarNol = true, maksLabel = 0, formatY = ringkas }) {
   const [ref, w] = useLebar()
   const gid = useId()
   const pad = { l: 44, r: 14, t: 10, b: 26 }
   const vals = data.map((d) => d.value)
-  const maxV = Math.max(0, ...vals), minV = Math.min(0, ...vals)
+  const maxV = dasarNol ? Math.max(0, ...vals) : Math.max(...vals), minV = dasarNol ? Math.min(0, ...vals) : Math.min(...vals)
   const rentang = maxV - minV || 1
   const iw = Math.max(0, w - pad.l - pad.r), ih = height - pad.t - pad.b
   const x = (i) => pad.l + (data.length === 1 ? iw / 2 : (iw * i) / (data.length - 1))
   const y = (v) => pad.t + ih - ((v - minV) / rentang) * ih
   const garis = data.map((d, i) => `${i ? 'L' : 'M'}${x(i)},${y(d.value)}`).join(' ')
-  const area = data.length > 1 ? `${garis} L${x(data.length - 1)},${y(0)} L${x(0)},${y(0)} Z` : ''
+  const area = data.length > 1 ? `${garis} L${x(data.length - 1)},${y(dasarNol ? 0 : minV)} L${x(0)},${y(dasarNol ? 0 : minV)} Z` : ''
+  const langkah = maksLabel > 0 ? Math.max(1, Math.ceil(data.length / maksLabel)) : 1
   const ticks = [maxV, (maxV + minV) / 2, minV].filter((v, i, a) => a.indexOf(v) === i)
   return (
     <div ref={ref} className="chartbox" style={{ height }}>
@@ -159,16 +160,16 @@ export function LineChart({ data, height = 200, color = 'var(--data-1)' }) {
           {ticks.map((t) => (
             <g key={t}>
               <line x1={pad.l} x2={w - pad.r} y1={y(t)} y2={y(t)} className="grid" />
-              <text x={pad.l - 8} y={y(t) + 4} textAnchor="end" className="axis">{ringkas(t)}</text>
+              <text x={pad.l - 8} y={y(t) + 4} textAnchor="end" className="axis">{formatY(t)}</text>
             </g>
           ))}
-          <line x1={pad.l} x2={w - pad.r} y1={y(0)} y2={y(0)} className="zero" />
+          {dasarNol && <line x1={pad.l} x2={w - pad.r} y1={y(0)} y2={y(0)} className="zero" />}
           {area && <path d={area} fill={`url(#${gid})`} />}
           <path d={garis} fill="none" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" style={{ stroke: color }} />
           {data.map((d, i) => (
             <g key={d.label + i}>
-              <circle cx={x(i)} cy={y(d.value)} r="4" className="dot-pt" style={{ stroke: color }}><title>{`${d.label}: ${rupiah(d.value)}`}</title></circle>
-              <text x={x(i)} y={height - 8} textAnchor="middle" className="axis">{d.label}</text>
+              <circle cx={x(i)} cy={y(d.value)} r={data.length > 31 ? 2 : 4} className="dot-pt" style={{ stroke: color }}><title>{`${d.label}: ${rupiah(d.value)}`}</title></circle>
+              {(i % langkah === 0 || i === data.length - 1) && <text x={x(i)} y={height - 8} textAnchor="middle" className="axis">{d.label}</text>}
             </g>
           ))}
         </svg>

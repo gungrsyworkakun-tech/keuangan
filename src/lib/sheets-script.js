@@ -16,24 +16,37 @@ export function simpanConfig(c, simpan = localStorage) {
 
 // ambil(): { url, kunci }. fetcher boleh diganti saat uji.
 export function buatKlienScript({ ambil = () => bacaConfig(), fetcher = (...a) => fetch(...a) } = {}) {
-  async function kirim(aksi, data) {
+  async function kirim(aksi, data, tambahan = {}) {
     const c = ambil()
     if (!c) throw new Error('Link dan kunci Sheet belum diisi')
     let res
     try {
-      res = await fetcher(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ kunci: c.kunci, aksi, data }), redirect: 'follow', credentials: 'omit' })
+      res = await fetcher(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ kunci: c.kunci, aksi, data, ...tambahan }), redirect: 'follow', credentials: 'omit' })
     } catch { throw new Error('Tidak bisa terhubung. Periksa internet dan link-nya') }
     let j
     try { j = await res.json() } catch { throw new Error('Link tidak benar, atau skrip belum di-deploy dengan akses "Siapa saja"') }
     if (!j || !j.ok) throw new Error((j && j.error) || 'Sheet menolak permintaan')
     return j
   }
+  let versi = 0
   return {
-    cari: async () => { await kirim('tes'); return 'script' }, // gagal = link/kunci salah
+    cari: async () => { versi = (await kirim('tes')).versi || 1; return 'script' }, // gagal = link/kunci salah
     buat: async () => 'script',
-    tulis: async (_id, state) => { await kirim('tulis', keBaris(state)) },
+    tulis: async (_id, state) => {
+      // skrip versi lama tidak menyimpan target pemasukan; jangan menimpa Sheet dengan data yang kurang
+      if ((state.budgets || []).some((b) => b.tipe === 'in')) {
+        if (!versi) versi = (await kirim('tes')).versi || 1
+        if (versi < 2) throw new Error('Skrip di Sheet kamu masih versi lama. Salin skrip baru dari menu Profil, tempel ulang, lalu Deploy > Kelola deployment > Versi baru.')
+      }
+      await kirim('tulis', keBaris(state))
+    },
     baca: async () => dariBaris((await kirim('baca')).data || {}),
-    harga: async (daftar) => (await kirim('harga', daftar)).harga || {},
+    harga: async (daftar, segar = false) => (await kirim('harga', daftar, segar ? { segar: true } : {})).harga || {},
+    // riwayat harga untuk grafik; skrip versi lama tidak mengenalnya -> pesan khusus
+    riwayat: async (jenis, hari = 90) => {
+      try { return (await kirim('riwayat', { jenis, hari })).titik || [] }
+      catch (e) { throw new Error(/tidak dikenal/i.test(e.message) ? 'SKRIP_LAMA' : e.message) }
+    },
   }
 }
 

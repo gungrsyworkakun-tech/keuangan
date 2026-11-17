@@ -12,10 +12,11 @@ export function daftarKategori(state, tipe, tambahan = []) {
   const lihat = new Set()
   const tambah = (c) => { const k = String(c || '').trim(); if (k && k !== 'Transfer' && k !== 'Lainnya' && !lihat.has(k.toLowerCase())) { lihat.add(k.toLowerCase()); hasil.push(k) } }
   if (tipe === 'out') {
-    const dariAnggaran = (state.budgets || []).map((b) => b.category)
+    const dariAnggaran = (state.budgets || []).filter((b) => tipeAnggaran(b) === 'out').map((b) => b.category)
     ;(dariAnggaran.length ? dariAnggaran : KATEGORI_KELUAR).forEach(tambah)
   } else {
     KATEGORI_MASUK.forEach(tambah)
+    ;(state.budgets || []).filter((b) => tipeAnggaran(b) === 'in').forEach((b) => tambah(b.category))
     ;(state.transactions || []).filter((t) => t.type === 'in' && !adalahTransfer(t)).forEach((t) => tambah(t.category))
   }
   tambahan.forEach(tambah)
@@ -33,6 +34,19 @@ export const JENIS_INVESTASI = ['Reksa dana', 'Saham', 'Emas', 'Obligasi', 'Krip
 export const POS_TABUNGAN = [['rutin', 'Rutin'], ['darurat', 'Dana darurat'], ['kesehatan', 'Kesehatan']]
 export const posDari = (x) => x.pos || 'rutin'
 export const adalahBulan = (x) => /^\d{4}-\d{2}$/.test(x.month)
+export const tipeAnggaran = (b) => (b.tipe === 'in' ? 'in' : 'out') // tanpa tanda = anggaran pengeluaran (data lama)
+const samaB = (b, c, t) => b.category === c && tipeAnggaran(b) === (t === 'in' ? 'in' : 'out')
+const buatB = (category, limit, t) => (t === 'in' ? { category, limit, tipe: 'in' } : { category, limit })
+const geserBulan = (key, n) => { const [y, m] = key.split('-').map(Number); const i = y * 12 + m - 1 + n; return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}` }
+// Aturan isi otomatis tabungan disimpan sebagai satu baris khusus per jenis: month 'otomatis', amount = nominal per bulan,
+// note = "mulai|terakhir terisi|nama tempat"
+export const bacaOtomatis = (x) => { const [mulai = '', terakhir = '', ...sisa] = String(x.note || '').split('|'); return { mulai, terakhir, nama: sisa.join('|') } }
+function isiKosong(savings, pos, dari, sampai, amount, nama) { // setoran untuk bulan yang masih kosong saja
+  const ada = new Set(savings.filter((x) => posDari(x) === pos && adalahBulan(x) && x.amount > 0).map((x) => x.month))
+  const baru = []
+  for (let k = dari; k <= sampai && baru.length < 600; k = geserBulan(k, 1)) if (!ada.has(k)) baru.push({ id: uid(), month: k, amount, note: nama, pos })
+  return baru
+}
 
 const initial = {
   accounts: [
@@ -72,7 +86,7 @@ const initial = {
 
 const empty = { accounts: [], transactions: [], investments: [], goals: [], budgets: [], savings: [] }
 
-function reducer(s, a) {
+export function reducer(s, a) {
   switch (a.type) {
     case 'replace':
       return { ...empty, ...a.state }
@@ -162,19 +176,20 @@ function reducer(s, a) {
     case 'fundGoal':
       return { ...s, goals: s.goals.map((g) => (g.id === a.id ? { ...g, saved: g.saved + a.amount } : g)) }
     case 'setBudget': {
-      const rest = s.budgets.filter((b) => b.category !== a.category)
-      return { ...s, budgets: a.limit > 0 ? [...rest, { category: a.category, limit: a.limit }] : rest }
+      const rest = s.budgets.filter((b) => !samaB(b, a.category, a.tipe))
+      return { ...s, budgets: a.limit > 0 ? [...rest, buatB(a.category, a.limit, a.tipe)] : rest }
     }
     case 'updateBudget': { // ubah nama kategori dan/atau batas; kalau nama baru sudah ada, digabung (yang baru menang)
-      const baru = { ...(s.budgets.find((b) => b.category === a.category) || { category: a.category, limit: 0 }), ...a.patch }
-      if (!(baru.limit > 0)) return { ...s, budgets: s.budgets.filter((b) => b.category !== a.category) }
-      const idx = s.budgets.findIndex((b) => b.category === a.category)
-      const rest = s.budgets.filter((b) => b.category !== baru.category && b.category !== a.category)
+      const t = a.tipe === 'in' ? 'in' : 'out'
+      const baru = { ...(s.budgets.find((b) => samaB(b, a.category, t)) || buatB(a.category, 0, t)), ...a.patch, ...(t === 'in' ? { tipe: 'in' } : {}) }
+      if (!(baru.limit > 0)) return { ...s, budgets: s.budgets.filter((b) => !samaB(b, a.category, t)) }
+      const idx = s.budgets.findIndex((b) => samaB(b, a.category, t))
+      const rest = s.budgets.filter((b) => !samaB(b, baru.category, t) && !samaB(b, a.category, t))
       const urut = [...rest]; urut.splice(Math.min(Math.max(idx, 0), urut.length), 0, baru)
       return { ...s, budgets: urut }
     }
     case 'deleteBudget':
-      return { ...s, budgets: s.budgets.filter((b) => b.category !== a.category) }
+      return { ...s, budgets: s.budgets.filter((b) => !samaB(b, a.category, a.tipe)) }
     case 'setSaving': { // satu pos + satu bulan = satu setoran; jumlah <= 0 menghapus
       const pos = a.pos || 'rutin'
       const cocok = (x) => x.month === a.month && posDari(x) === pos && x.amount > 0
@@ -199,6 +214,26 @@ function reducer(s, a) {
       return { ...s, savings: [...s.savings, { id: uid(), month: a.month, amount: -Math.abs(a.amount), note: a.note || '', pos: a.pos }] }
     case 'deleteSaving':
       return { ...s, savings: s.savings.filter((x) => x.id !== a.id) }
+    case 'addOtomatis': { // satu aturan per jenis tabungan; mengisi bulan kosong dari bulan mulai sampai bulan ini
+      const pos = a.pos || 'rutin', nama = String(a.name || '').replace(/\|/g, ' ').trim().slice(0, 60)
+      const lama = s.savings.filter((x) => !(x.month === 'otomatis' && posDari(x) === pos))
+      const terakhir = a.from > a.sekarang ? geserBulan(a.from, -1) : a.sekarang
+      const baru = isiKosong(lama, pos, a.from, a.sekarang, a.amount, nama)
+      return { ...s, savings: [...lama, ...baru, { id: uid(), month: 'otomatis', amount: a.amount, note: `${a.from}|${terakhir}|${nama}`, pos }] }
+    }
+    case 'jalankanOtomatis': { // dipanggil saat aplikasi dibuka: isi bulan yang terlewat; bulan yang sengaja dikosongkan tidak diisi lagi
+      let savings = s.savings, berubah = false
+      for (const r of s.savings.filter((x) => x.month === 'otomatis')) {
+        const { mulai, terakhir, nama } = bacaOtomatis(r)
+        if (!(r.amount > 0) || !/^\d{4}-\d{2}$/.test(terakhir) || terakhir >= a.sekarang) continue
+        const baru = isiKosong(savings, posDari(r), geserBulan(terakhir, 1), a.sekarang, r.amount, nama)
+        savings = savings.map((x) => (x.id === r.id ? { ...x, note: `${mulai}|${a.sekarang}|${nama}` } : x)).concat(baru)
+        berubah = true
+      }
+      return berubah ? { ...s, savings } : s
+    }
+    case 'addLokasi': // tempat dana disimpan (mis. "BCA ATM"); jumlah boleh kosong
+      return { ...s, savings: [...s.savings, { id: uid(), month: 'lokasi', amount: Math.max(0, Number(a.amount) || 0), note: String(a.name || '').trim().slice(0, 60), pos: a.pos }] }
     case 'setTargetTabungan': { // target disimpan sebagai satu baris khusus per pos
       const rest = s.savings.filter((x) => !(x.month === 'target' && posDari(x) === a.pos))
       return { ...s, savings: a.amount > 0 ? [...rest, { id: uid(), month: 'target', amount: a.amount, note: '', pos: a.pos }] : rest }

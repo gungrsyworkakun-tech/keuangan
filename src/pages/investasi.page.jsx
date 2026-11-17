@@ -5,6 +5,7 @@ import { rupiah, hariIni } from '../lib/format'
 import { JENIS_INVESTASI } from '../lib/store'
 import { call, MODE_SHEETS, NATIVE } from '../lib/api'
 import { bacaConfig, buatKlienScript } from '../lib/sheets-script'
+import RiwayatHarga from './riwayat-harga'
 import EditDialog from './edit-dialog'
 
 const SUMBER = [['', 'Isi nilai manual'], ['emasid', 'Emas toko Indonesia (Antam, Galeri 24, UBS)'], ['emas', 'Emas harga dunia (acuan)'], ['kripto', 'Kripto (kode CoinGecko)'], ['saham', 'Saham BEI (kode saham)']]
@@ -26,12 +27,12 @@ export default function Investasi({ state, dispatch }) {
   const otomatis = useMemo(() => state.investments.filter((i) => i.sumber), [state.investments])
   const daftarKey = otomatis.map(kunci).join('|')
 
-  const segarkan = useCallback(async () => {
+  const segarkan = useCallback(async (segar = false) => {
     if (!bisaHarga || !otomatis.length) return
     setMuat('loading')
     try {
       const unik = [...new Map(otomatis.map((i) => [kunci(i), { sumber: i.sumber, kode: i.kode || '' }])).values()]
-      if (NATIVE) setHarga(await klienHarga.harga(unik))
+      if (NATIVE) setHarga(await klienHarga.harga(unik, segar === true))
       else {
         const r = await call('harga', { daftar: unik })
         if (!r.ok) throw new Error(r.error)
@@ -86,6 +87,7 @@ export default function Investasi({ state, dispatch }) {
   state.investments.forEach((i) => (perJenis[i.type] = (perJenis[i.type] || 0) + nilai(i)))
   const alok = Object.entries(perJenis).map(([label, value]) => ({ label, value })).filter((x) => x.value > 0)
   const batang = state.investments.map((i) => ({ label: i.name.length > 9 ? i.name.slice(0, 8) + '…' : i.name, modal: i.invested, nilai: nilai(i) }))
+  const seriRiwayat = [...new Map(otomatis.filter((i) => i.sumber !== 'saham' || i.kode).map((i) => [kunci(i), { kunci: kunci(i), nama: i.name }])).values()]
   const waktuTerbaru = Object.values(harga).map((h) => h.t).filter(Boolean).sort().pop()
   return (
     <>
@@ -100,7 +102,7 @@ export default function Investasi({ state, dispatch }) {
       {otomatis.length > 0 && (
         <div className="hargabar">
           <span>{muat === 'loading' ? 'Mengambil harga terbaru…' : muat === 'ok' ? `Harga pasar diperbarui ${waktuLabel(waktuTerbaru)}` : muat === 'error' ? 'Harga belum bisa diambil, memakai nilai terakhir' : bisaHarga ? '' : NATIVE ? 'Harga otomatis aktif setelah Sheet dihubungkan (menu Profil). Sebelum itu, ubah nilainya sendiri lewat tombol Edit' : 'Harga otomatis aktif setelah terhubung ke Google Sheets'}</span>
-          {bisaHarga && <button className="btn sm" onClick={segarkan} disabled={muat === 'loading'}>Perbarui harga</button>}
+          {bisaHarga && <button className="btn sm" onClick={() => segarkan(true)} disabled={muat === 'loading'}>Perbarui harga</button>}
         </div>
       )}
       <div className="grid-main">
@@ -111,6 +113,7 @@ export default function Investasi({ state, dispatch }) {
           {alok.length === 0 ? <Empty>Belum ada investasi.</Empty> : <Donut items={alok} />}
         </Panel>
       </div>
+      {NATIVE && bisaHarga && seriRiwayat.length > 0 && <RiwayatHarga daftar={seriRiwayat} klien={klienHarga} versiKunci={waktuTerbaru || ''} />}
       <Panel title="Portofolio" sub="Ketuk untuk mengubah atau menghapus">
         {state.investments.length === 0 ? <Empty>Belum ada investasi.</Empty> : state.investments.map((i) => {
           const n = nilai(i), g = n - i.invested, h = i.sumber ? harga[kunci(i)] : null

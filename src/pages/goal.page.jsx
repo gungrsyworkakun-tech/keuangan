@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Panel, Empty } from './ui'
 import { Ring } from '../components/charts'
 import { rupiah, tanggal } from '../lib/format'
+import Simulasi from './simulasi'
 import EditDialog from './edit-dialog'
 
 export default function Goal({ state, dispatch }) {
   const [f, setF] = useState({ name: '', target: '', deadline: '' })
-  const [fund, setFund] = useState({}), [ed, setEd] = useState(null)
+  const [fund, setFund] = useState({}), [ambil, setAmbil] = useState({}), [err, setErr] = useState({}), [ed, setEd] = useState(null)
   const add = (e) => {
     e.preventDefault()
     if (!f.name.trim() || !(Number(f.target) > 0)) return
@@ -36,6 +37,18 @@ export default function Goal({ state, dispatch }) {
                 <input type="number" inputMode="numeric" placeholder="Tambah tabungan" value={fund[g.id] || ''} onChange={(e) => setFund({ ...fund, [g.id]: e.target.value })} aria-label={'Tambah dana ' + g.name} />
                 <button className="btn">Setor</button>
               </form>
+              <form className="inline" onSubmit={(e) => {
+                e.preventDefault()
+                const n = Number(ambil[g.id])
+                if (!(n > 0)) return
+                if (n > g.saved) return setErr({ ...err, [g.id]: 'Melebihi yang terkumpul (' + rupiah(g.saved) + ')' })
+                dispatch({ type: 'fundGoal', id: g.id, amount: -n })
+                setAmbil({ ...ambil, [g.id]: '' }); setErr({ ...err, [g.id]: '' })
+              }}>
+                <input type="number" inputMode="numeric" placeholder="Dipakai / diambil" value={ambil[g.id] || ''} onChange={(e) => setAmbil({ ...ambil, [g.id]: e.target.value })} aria-label={'Pakai dana ' + g.name} />
+                <button className="btn">Pakai</button>
+              </form>
+              {err[g.id] && <em role="alert">{err[g.id]}</em>}
             </Panel>
           )
         })}
@@ -44,6 +57,7 @@ export default function Goal({ state, dispatch }) {
         fields={[{ k: 'name', label: 'Nama goal', type: 'text' }, { k: 'target', label: 'Target (Rp)', type: 'number', min: 1 }, { k: 'saved', label: 'Sudah terkumpul (Rp)', type: 'number', min: 0 }, { k: 'deadline', label: 'Tenggat', type: 'date' }]}
         onSave={(patch) => dispatch({ type: 'updateGoal', id: ed.id, patch })}
         onDelete={() => dispatch({ type: 'deleteGoal', id: ed.id })} />
+      <Simulasi goals={state.goals} />
       <Panel title="Buat goal baru">
         <form className="inline" onSubmit={add}>
           <input placeholder="Nama goal" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label="Nama goal" />

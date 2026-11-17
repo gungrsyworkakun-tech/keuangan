@@ -4,7 +4,8 @@ import { I } from '../components/icons'
 import { inisial } from '../lib/format'
 import skripBackup from '../../apps-script/Backup.gs?raw'
 import { gantiPassword as gantiLokal } from '../lib/akun-lokal'
-import { kunciDraf, hapusKunciDraf, skripDenganKunci } from '../lib/sheets-script'
+import { kunciDraf, hapusKunciDraf, skripDenganKunci, bacaConfig } from '../lib/sheets-script'
+import { buatKode, bacaKode } from '../lib/kode-pindah'
 import { buatBerkas, bacaBerkas, namaBerkas, simpanBerkas } from '../lib/backup-file'
 
 function Pesan({ p }) {
@@ -20,6 +21,18 @@ function waktu(iso) {
 function BackupSheets({ c }) {
   const terhubung = Boolean(c.meta && c.meta.id)
   const [url, setUrl] = useState(''), [kunci, setKunci] = useState(() => kunciDraf()), [salin, setSalin] = useState('')
+  const [kode, setKode] = useState(''), [pesanKode, setPesanKode] = useState(null)
+  const pakaiKode = () => {
+    try { const k = bacaKode(kode); setUrl(k.url); setKunci(k.kunci); setPesanKode({ ok: true, teks: 'Kode dibaca. Menghubungkan…' }); c.hubungkan(k).then(() => { hapusKunciDraf(); setKode('') }) }
+    catch (e) { setPesanKode({ ok: false, teks: e.message }) }
+  }
+  const kirimKode = async () => {
+    try {
+      const teks = buatKode(bacaConfig())
+      if (navigator.share) { try { await navigator.share({ text: teks }); return setPesanKode({ ok: true, teks: 'Kode dibagikan. Hapus pesannya setelah dipakai di HP baru.' }) } catch (e) { if (/abort|cancel/i.test(String(e && e.name))) return } }
+      await navigator.clipboard.writeText(teks); setPesanKode({ ok: true, teks: 'Kode tersalin. Tempel di HP baru, lalu hapus dari tempat kamu menempelnya.' })
+    } catch (e) { setPesanKode({ ok: false, teks: 'Tidak bisa membuat kode: ' + ((e && e.message) || 'coba lagi') }) }
+  }
   return (
     <Panel title="Backup otomatis ke Google Sheets" sub="Data utama ada di HP ini. Salinannya otomatis dikirim ke Sheet milikmu">
       {!terhubung && c.status !== 'pilih' && c.jenis === 'script' && (
@@ -29,6 +42,13 @@ function BackupSheets({ c }) {
           <label>Kunci rahasia (dibuat otomatis, sudah ada di skrip yang disalin)<input autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck="false" value={kunci} onChange={(e) => setKunci(e.target.value)} /></label>
           {c.pesan && <p role="alert" className="out">{c.pesan}</p>}
           <button className="btn primary" disabled={c.status === 'menghubungkan' || !url || !kunci}>{c.status === 'menghubungkan' ? 'Menghubungkan…' : 'Hubungkan & tes'}</button>
+          <details className="pasang">
+            <summary>Pindah dari HP lama? Tempel kode pindah</summary>
+            <label>Kode pindah<textarea rows="3" autoCapitalize="none" autoCorrect="off" spellCheck="false" placeholder="DUITKU1:…" value={kode} onChange={(e) => setKode(e.target.value)} /></label>
+            <button type="button" className="btn primary" disabled={!kode.trim() || c.status === 'menghubungkan'} onClick={pakaiKode}>Pakai kode & hubungkan</button>
+            <Pesan p={pesanKode} />
+            <p className="hint">Data kamu otomatis dipulihkan dari Sheet kalau HP ini masih kosong.</p>
+          </details>
           <details className="pasang">
             <summary>Cara menyiapkan Sheet (sekali, sekitar 5 menit)</summary>
             <ol>
@@ -65,6 +85,18 @@ function BackupSheets({ c }) {
             <button className="btn" onClick={() => window.confirm('Data di HP akan diganti dengan data dari Sheets. Lanjutkan?') && c.pulihkan()}>Pulihkan dari Sheets</button>
             <button className="btn danger" onClick={c.putuskan}>Putuskan</button>
           </div>
+          <details className="pasang">
+            <summary>Pindah ke HP baru</summary>
+            <ol>
+              <li>Pastikan <b>Cadangkan sekarang</b> sudah berhasil.</li>
+              <li>Tekan <b>Buat kode pindah</b> dan kirim ke dirimu sendiri (misalnya WhatsApp ke nomor sendiri).</li>
+              <li>Di HP baru: pasang Duitku, buka Profil, lalu tempel kode di bagian backup Sheets.</li>
+              <li>Hapus pesan berisi kode setelah selesai.</li>
+            </ol>
+            <p className="hint"><b>Jaga kerahasiaan kode ini.</b> Di dalamnya ada kunci Sheet-mu; siapa pun yang memegangnya bisa membaca dan menimpa backupmu.</p>
+            <button type="button" className="btn" onClick={kirimKode}>Buat kode pindah</button>
+            <Pesan p={pesanKode} />
+          </details>
         </div>
       )}
     </Panel>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Panel, Empty, Progress } from './ui'
 import { BarChart } from '../components/charts'
 import { rupiah, bulanLabel, bulanPendek } from '../lib/format'
-import { POS_TABUNGAN, posDari, adalahBulan } from '../lib/store'
+import { POS_TABUNGAN, posDari, adalahBulan, bacaOtomatis } from '../lib/store'
 
 const sekarang = () => new Date().toISOString().slice(0, 7)
 const geser = (key, n) => { const [y, m] = key.split('-').map(Number); const i = y * 12 + m - 1 + n; return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}` }
@@ -21,12 +21,18 @@ export default function Tabungan({ state, dispatch }) {
   const [pesan, setPesan] = useState('')
   const [pakai, setPakai] = useState({ amount: '', note: '' })
   const [tgt, setTgt] = useState('')
+  const [lok, setLok] = useState({ name: '', amount: '', auto: false, tiap: '', mulai: kini })
+  const [errLok, setErrLok] = useState('')
   const [err, setErr] = useState('')
   const namaPos = POS_TABUNGAN.find(([k]) => k === pos)[1]
 
   const milik = useMemo(() => semua.filter((x) => posDari(x) === pos), [semua, pos])
   const setoran = milik.filter((x) => adalahBulan(x) && x.amount > 0)
   const pemakaian = milik.filter((x) => adalahBulan(x) && x.amount < 0).sort((a, b) => b.month.localeCompare(a.month))
+  const lokasi = milik.filter((x) => x.month === 'lokasi')
+  const aturan = milik.find((x) => x.month === 'otomatis')
+  const infoAturan = aturan ? bacaOtomatis(aturan) : null
+  const dialokasi = lokasi.reduce((a, x) => a + x.amount, 0)
   const target = milik.find((x) => x.month === 'target')?.amount || 0
   const peta = useMemo(() => Object.fromEntries(setoran.map((x) => [x.month, x])), [setoran])
   const disetor = setoran.reduce((a, x) => a + x.amount, 0)
@@ -67,6 +73,16 @@ export default function Tabungan({ state, dispatch }) {
     dispatch({ type: 'pakaiDana', pos, month: kini, amount: n, note: pakai.note.trim().slice(0, 80) })
     setErr(''); setPakai({ amount: '', note: '' })
   }
+  const submitLokasi = (e) => {
+    e.preventDefault()
+    if (!lok.name.trim()) return setErrLok('Nama bank atau ATM wajib diisi')
+    if (lok.auto && !(Number(lok.tiap) > 0)) return setErrLok('Isi nominal per bulan untuk isi otomatis')
+    if (lok.auto && !lok.mulai) return setErrLok('Pilih bulan mulai')
+    dispatch({ type: 'addLokasi', pos, name: lok.name, amount: Number(lok.amount) || 0 })
+    if (lok.auto) dispatch({ type: 'addOtomatis', pos, name: lok.name, amount: Number(lok.tiap), from: lok.mulai, sekarang: kini })
+    setErrLok(''); setLok({ name: '', amount: '', auto: false, tiap: '', mulai: kini })
+    if (lok.auto) setPesan('Bulan yang masih kosong sudah terisi otomatis. Bulan yang sudah kamu isi sendiri tidak diubah.')
+  }
   const submitTarget = (e) => { e.preventDefault(); dispatch({ type: 'setTargetTabungan', pos, amount: Number(tgt) || 0 }); setTgt('') }
 
   return (
@@ -84,6 +100,7 @@ export default function Tabungan({ state, dispatch }) {
           {dipakai > 0 && <div><small>Sudah dipakai</small><b>{rupiah(dipakai)}</b></div>}
         </div>
       </section>
+      {lokasi.length > 0 && <small className="hint">Disimpan di: <b>{lokasi.map((x) => x.note).join(', ')}</b></small>}
       <small className="hint">{KET[pos]}. Total semua tabungan: <b>{rupiah(totalSemua)}</b></small>
 
       {pos !== 'rutin' && (
@@ -96,6 +113,41 @@ export default function Tabungan({ state, dispatch }) {
         </Panel>
       )}
 
+      <Panel title="Disimpan di mana" sub={`Catat rekening atau ATM tempat ${namaPos.toLowerCase()} disimpan`}>
+        <form className="inline" onSubmit={submitLokasi}>
+          <input list="daftar-rekening" placeholder="Bank / ATM (mis. BCA)" value={lok.name} maxLength={60} onChange={(e) => setLok({ ...lok, name: e.target.value })} aria-label="Nama bank atau ATM" />
+          <input type="number" inputMode="numeric" placeholder="Jumlah di sana (opsional)" value={lok.amount} onChange={(e) => setLok({ ...lok, amount: e.target.value })} aria-label="Jumlah di sana" />
+          <label className="mini" style={{ flexBasis: '100%' }}><span><input type="checkbox" checked={lok.auto} onChange={(e) => setLok({ ...lok, auto: e.target.checked })} /> Isi otomatis tiap bulan</span></label>
+          {lok.auto && <>
+            <label className="mini">Nominal / bulan<input type="number" inputMode="numeric" placeholder="Rp" value={lok.tiap} onChange={(e) => setLok({ ...lok, tiap: e.target.value })} /></label>
+            <label className="mini">Mulai bulan<input type="month" value={lok.mulai} onChange={(e) => setLok({ ...lok, mulai: e.target.value })} /></label>
+          </>}
+          <button className="btn">Tambah</button>
+          <datalist id="daftar-rekening">{(state.accounts || []).map((a) => <option key={a.id} value={a.name} />)}</datalist>
+        </form>
+        {errLok && <em role="alert">{errLok}</em>}
+        {infoAturan && (
+          <div className="trow"><div><strong>Otomatis {rupiah(aturan.amount)} / bulan</strong><small>{infoAturan.nama ? 'di ' + infoAturan.nama + ' · ' : ''}sejak {bulanLabel(infoAturan.mulai)}. Bulan yang sudah kamu isi tidak diubah. Mengaktifkan lagi mengganti aturan ini.</small></div><button className="btn sm" onClick={() => dispatch({ type: 'deleteSaving', id: aturan.id })} aria-label="Hentikan isi otomatis">Hentikan</button></div>
+        )}
+        {lokasi.map((x) => (
+          <div key={x.id} className="trow"><div><strong>{x.note}</strong><small>{x.amount > 0 ? rupiah(x.amount) : 'Jumlah tidak dicatat'}</small></div><button className="btn sm" onClick={() => dispatch({ type: 'deleteSaving', id: x.id })} aria-label={'Hapus ' + x.note}>Hapus</button></div>
+        ))}
+        {dialokasi > 0 && <small>{dialokasi === saldo ? 'Pas dengan saldo.' : dialokasi < saldo ? `Belum tercatat tempatnya: ${rupiah(saldo - dialokasi)}` : `Lebih ${rupiah(dialokasi - saldo)} dari saldo`}</small>}
+        {lokasi.length === 0 && <Empty>Belum dicatat disimpan di mana.</Empty>}
+      </Panel>
+      {(
+        <Panel title="Pakai / tarik dana" sub={`Catat saat ${namaPos.toLowerCase()} dipakai atau diambil; saldo berkurang`}>
+          <form className="inline" onSubmit={submitPakai}>
+            <input type="number" inputMode="numeric" placeholder="Jumlah dipakai (Rp)" value={pakai.amount} onChange={(e) => setPakai({ ...pakai, amount: e.target.value })} aria-label="Jumlah dipakai" />
+            <input placeholder={pos === 'kesehatan' ? 'Untuk apa (mis. berobat)' : pos === 'rutin' ? 'Untuk apa (mis. beli laptop)' : 'Untuk apa'} value={pakai.note} maxLength={80} onChange={(e) => setPakai({ ...pakai, note: e.target.value })} aria-label="Keperluan" />
+            <button className="btn primary">Catat</button>
+          </form>
+          {err && <em role="alert">{err}</em>}
+          {pemakaian.map((x) => (
+            <div key={x.id} className="trow"><div><strong>{rupiah(-x.amount)}</strong><small>{bulanLabel(x.month)}{x.note ? ' · ' + x.note : ''}</small></div><button className="btn sm" onClick={() => dispatch({ type: 'deleteSaving', id: x.id })} aria-label={'Hapus pemakaian ' + rupiah(-x.amount)}>Hapus</button></div>
+          ))}
+        </Panel>
+      )}
       <Panel title={namaPos + ' ' + tahun} sub={`Total disetor tahun ini ${rupiah(totalTahun)}`}
         action={<div className="chips" role="group" aria-label="Pilih tahun"><button className="chip" aria-label="Tahun sebelumnya" onClick={() => setTahun(tahun - 1)}>‹</button><span className="chip on">{tahun}</span><button className="chip" aria-label="Tahun berikutnya" onClick={() => setTahun(tahun + 1)}>›</button></div>}>
         <BarChart data={batang} series={[{ key: 'jumlah', label: 'Setoran', color: 'var(--data-1)' }]} height={180} />
@@ -123,19 +175,6 @@ export default function Tabungan({ state, dispatch }) {
         </form>
         {pesan && <p className="empty" role="status">{pesan}</p>}
       </Panel>
-      {pos !== 'rutin' && (
-        <Panel title="Pakai dana" sub={`Catat saat ${namaPos.toLowerCase()} dipakai; saldo berkurang`}>
-          <form className="inline" onSubmit={submitPakai}>
-            <input type="number" inputMode="numeric" placeholder="Jumlah dipakai (Rp)" value={pakai.amount} onChange={(e) => setPakai({ ...pakai, amount: e.target.value })} aria-label="Jumlah dipakai" />
-            <input placeholder={pos === 'kesehatan' ? 'Untuk apa (mis. berobat)' : 'Untuk apa'} value={pakai.note} maxLength={80} onChange={(e) => setPakai({ ...pakai, note: e.target.value })} aria-label="Keperluan" />
-            <button className="btn primary">Catat</button>
-          </form>
-          {err && <em role="alert">{err}</em>}
-          {pemakaian.map((x) => (
-            <div key={x.id} className="trow"><div><strong>{rupiah(-x.amount)}</strong><small>{bulanLabel(x.month)}{x.note ? ' · ' + x.note : ''}</small></div><button className="btn sm" onClick={() => dispatch({ type: 'deleteSaving', id: x.id })} aria-label={'Hapus pemakaian ' + rupiah(-x.amount)}>Hapus</button></div>
-          ))}
-        </Panel>
-      )}
       {terbesar && <Panel title="Setoran terbesar"><p><b>{rupiah(terbesar.amount)}</b> <small>pada {bulanLabel(terbesar.month)}</small></p></Panel>}
       {terisi === 0 && <Empty>Belum ada setoran di {namaPos.toLowerCase()}. Mulai isi bulan di atas atau pakai isi sekaligus.</Empty>}
     </>
